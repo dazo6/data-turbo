@@ -40,8 +40,10 @@ import java.util.stream.Stream;
  * @author dazo66
  **/
 public class SynchronizedCollection<E> implements Collection<E>, Serializable {
+    private static final long serialVersionUID = 3053995032091335093L;
     final Collection<E> c;  // Backing Collection
     final Object mutex;     // Object on which to synchronize
+
     public SynchronizedCollection(Collection<E> c) {
         this.c = Objects.requireNonNull(c);
         mutex = this;
@@ -183,5 +185,4 @@ public class SynchronizedCollection<E> implements Collection<E>, Serializable {
             s.defaultWriteObject();
         }
     }
-    private static final long serialVersionUID = 3053995032091335093L;
 }

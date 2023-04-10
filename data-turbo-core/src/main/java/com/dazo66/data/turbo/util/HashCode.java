@@ -16,7 +16,9 @@ package com.dazo66.data.turbo.util;
 
 import java.io.Serializable;
 
-import static com.dazo66.data.turbo.util.Preconditions.*;
+import static com.dazo66.data.turbo.util.Preconditions.checkArgument;
+import static com.dazo66.data.turbo.util.Preconditions.checkNotNull;
+import static com.dazo66.data.turbo.util.Preconditions.checkState;
 
 /**
  * An immutable hash code of arbitrary bit length.
@@ -26,7 +28,82 @@ import static com.dazo66.data.turbo.util.Preconditions.*;
  * @since 11.0
  */
 public abstract class HashCode {
+    private static final char[] hexDigits = "0123456789abcdef".toCharArray();
+
     HashCode() {
+    }
+
+    /**
+     * Creates a 32-bit {@code HashCode} representation of the given int value. The underlying bytes
+     * are interpreted in little endian order.
+     *
+     * @since 15.0 (since 12.0 in HashCodes)
+     */
+    public static HashCode fromInt(int hash) {
+        return new IntHashCode(hash);
+    }
+
+    /**
+     * Creates a 64-bit {@code HashCode} representation of the given long value. The underlying
+     * bytes
+     * are interpreted in little endian order.
+     *
+     * @since 15.0 (since 12.0 in HashCodes)
+     */
+    public static HashCode fromLong(long hash) {
+        return new LongHashCode(hash);
+    }
+
+    /**
+     * Creates a {@code HashCode} from a byte array. The array is defensively copied to preserve the
+     * immutability contract of {@code HashCode}. The array cannot be empty.
+     *
+     * @since 15.0 (since 12.0 in HashCodes)
+     */
+    public static HashCode fromBytes(byte[] bytes) {
+        checkArgument(bytes.length >= 1, "A HashCode must contain at least 1 byte.");
+        return fromBytesNoCopy(bytes.clone());
+    }
+
+    /**
+     * Creates a {@code HashCode} from a byte array. The array is <i>not</i> copied defensively,
+     * so it
+     * must be handed-off so as to preserve the immutability contract of {@code HashCode}.
+     */
+    static HashCode fromBytesNoCopy(byte[] bytes) {
+        return new BytesHashCode(bytes);
+    }
+
+    /**
+     * Creates a {@code HashCode} from a hexadecimal ({@code base 16}) encoded string. The string
+     * must
+     * be at least 2 characters long, and contain only valid, lower-cased hexadecimal characters.
+     *
+     * @since 15.0
+     */
+    public static HashCode fromString(String string) {
+        checkArgument(string.length() >= 2, "input string (%s) must have at least 2 characters",
+                string);
+        checkArgument(string.length() % 2 == 0, "input string (%s) must have an even number of " +
+                "characters", string);
+
+        byte[] bytes = new byte[string.length() / 2];
+        for (int i = 0; i < string.length(); i += 2) {
+            int ch1 = decode(string.charAt(i)) << 4;
+            int ch2 = decode(string.charAt(i + 1));
+            bytes[i / 2] = (byte) (ch1 + ch2);
+        }
+        return fromBytesNoCopy(bytes);
+    }
+
+    private static int decode(char ch) {
+        if (ch >= '0' && ch <= '9') {
+            return ch - '0';
+        }
+        if (ch >= 'a' && ch <= 'f') {
+            return ch - 'a' + 10;
+        }
+        throw new IllegalArgumentException("Illegal hexadecimal character: " + ch);
     }
 
     /**
@@ -164,83 +241,12 @@ public abstract class HashCode {
         }
         return sb.toString();
     }
-    private static final char[] hexDigits = "0123456789abcdef".toCharArray();
-
-    /**
-     * Creates a 32-bit {@code HashCode} representation of the given int value. The underlying bytes
-     * are interpreted in little endian order.
-     *
-     * @since 15.0 (since 12.0 in HashCodes)
-     */
-    public static HashCode fromInt(int hash) {
-        return new IntHashCode(hash);
-    }
-
-    /**
-     * Creates a 64-bit {@code HashCode} representation of the given long value. The underlying
-     * bytes
-     * are interpreted in little endian order.
-     *
-     * @since 15.0 (since 12.0 in HashCodes)
-     */
-    public static HashCode fromLong(long hash) {
-        return new LongHashCode(hash);
-    }
-
-    /**
-     * Creates a {@code HashCode} from a byte array. The array is defensively copied to preserve the
-     * immutability contract of {@code HashCode}. The array cannot be empty.
-     *
-     * @since 15.0 (since 12.0 in HashCodes)
-     */
-    public static HashCode fromBytes(byte[] bytes) {
-        checkArgument(bytes.length >= 1, "A HashCode must contain at least 1 byte.");
-        return fromBytesNoCopy(bytes.clone());
-    }
-
-    /**
-     * Creates a {@code HashCode} from a byte array. The array is <i>not</i> copied defensively,
-     * so it
-     * must be handed-off so as to preserve the immutability contract of {@code HashCode}.
-     */
-    static HashCode fromBytesNoCopy(byte[] bytes) {
-        return new BytesHashCode(bytes);
-    }
-
-    /**
-     * Creates a {@code HashCode} from a hexadecimal ({@code base 16}) encoded string. The string
-     * must
-     * be at least 2 characters long, and contain only valid, lower-cased hexadecimal characters.
-     *
-     * @since 15.0
-     */
-    public static HashCode fromString(String string) {
-        checkArgument(string.length() >= 2, "input string (%s) must have at least 2 characters",
-                string);
-        checkArgument(string.length() % 2 == 0, "input string (%s) must have an even number of " +
-                "characters", string);
-
-        byte[] bytes = new byte[string.length() / 2];
-        for (int i = 0; i < string.length(); i += 2) {
-            int ch1 = decode(string.charAt(i)) << 4;
-            int ch2 = decode(string.charAt(i + 1));
-            bytes[i / 2] = (byte) (ch1 + ch2);
-        }
-        return fromBytesNoCopy(bytes);
-    }
-
-    private static int decode(char ch) {
-        if (ch >= '0' && ch <= '9') {
-            return ch - '0';
-        }
-        if (ch >= 'a' && ch <= 'f') {
-            return ch - 'a' + 10;
-        }
-        throw new IllegalArgumentException("Illegal hexadecimal character: " + ch);
-    }
 
     private static final class IntHashCode extends HashCode implements Serializable {
+        static final long INT_MASK = 0xffffffffL;
+        private static final long serialVersionUID = 0;
         final int hash;
+
         IntHashCode(int hash) {
             this.hash = hash;
         }
@@ -282,12 +288,12 @@ public abstract class HashCode {
         boolean equalsSameBits(HashCode that) {
             return hash == that.asInt();
         }
-        static final long INT_MASK = 0xffffffffL;
-        private static final long serialVersionUID = 0;
     }
 
     private static final class LongHashCode extends HashCode implements Serializable {
+        private static final long serialVersionUID = 0;
         final long hash;
+
         LongHashCode(long hash) {
             this.hash = hash;
         }
@@ -330,11 +336,12 @@ public abstract class HashCode {
         boolean equalsSameBits(HashCode that) {
             return hash == that.asLong();
         }
-        private static final long serialVersionUID = 0;
     }
 
     private static final class BytesHashCode extends HashCode implements Serializable {
+        private static final long serialVersionUID = 0;
         final byte[] bytes;
+
         BytesHashCode(byte[] bytes) {
             this.bytes = checkNotNull(bytes);
         }
@@ -396,6 +403,5 @@ public abstract class HashCode {
             }
             return areEqual;
         }
-        private static final long serialVersionUID = 0;
     }
 }

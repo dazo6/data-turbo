@@ -17,7 +17,10 @@ package com.dazo66.data.turbo.util;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 
-import static com.dazo66.data.turbo.util.MathPreconditions.*;
+import static com.dazo66.data.turbo.util.MathPreconditions.checkNoOverflow;
+import static com.dazo66.data.turbo.util.MathPreconditions.checkNonNegative;
+import static com.dazo66.data.turbo.util.MathPreconditions.checkPositive;
+import static com.dazo66.data.turbo.util.MathPreconditions.checkRoundingUnnecessary;
 import static com.dazo66.data.turbo.util.Preconditions.checkArgument;
 import static com.dazo66.data.turbo.util.Preconditions.checkNotNull;
 import static java.lang.Math.abs;
@@ -37,6 +40,72 @@ import static java.math.RoundingMode.HALF_UP;
  */
 public final class LongMath {
     // NOTE: Whenever both tests are cheap and functional, it's faster to use &, | instead of &&, ||
+
+    static final long MAX_SIGNED_POWER_OF_TWO = 1L << (Long.SIZE - 2);
+    /**
+     * The biggest half power of two that fits into an unsigned long
+     */
+    static final long MAX_POWER_OF_SQRT2_UNSIGNED = 0xB504F333F9DE6484L;
+    static final byte[] maxLog10ForLeadingZeros = {19, 18, 18, 18, 18, 17, 17, 17, 16, 16, 16, 15
+            , 15, 15, 15, 14, 14, 14, 13, 13, 13, 12, 12, 12, 12, 11, 11, 11, 10, 10, 10, 9, 9, 9
+            , 9, 8, 8, 8, 7, 7, 7, 6, 6, 6, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 0,
+            0, 0};
+    static final long[] powersOf10 = {1L, 10L, 100L, 1000L, 10000L, 100000L, 1000000L, 10000000L,
+            100000000L, 1000000000L, 10000000000L, 100000000000L, 1000000000000L, 10000000000000L
+            , 100000000000000L, 1000000000000000L, 10000000000000000L, 100000000000000000L,
+            1000000000000000000L};
+    static final long[] halfPowersOf10 = {3L, 31L, 316L, 3162L, 31622L, 316227L, 3162277L,
+            31622776L, 316227766L, 3162277660L, 31622776601L, 316227766016L, 3162277660168L,
+            31622776601683L, 316227766016837L, 3162277660168379L, 31622776601683793L,
+            316227766016837933L, 3162277660168379331L};
+    static final long FLOOR_SQRT_MAX_LONG = 3037000499L;
+    static final long[] factorials = {1L, 1L, 1L * 2, 1L * 2 * 3, 1L * 2 * 3 * 4,
+            1L * 2 * 3 * 4 * 5, 1L * 2 * 3 * 4 * 5 * 6, 1L * 2 * 3 * 4 * 5 * 6 * 7,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8, 1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10, 1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11
+            , 1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16 * 17,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16 * 17 * 18,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16 * 17 * 18 * 19,
+            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16 * 17 * 18 * 19 * 20};
+    /*
+     * binomial(biggestBinomials[k], k) fits in a long, but not binomial(biggestBinomials[k] + 1,
+     *  k).
+     */
+    static final int[] biggestBinomials = {Integer.MAX_VALUE, Integer.MAX_VALUE,
+            Integer.MAX_VALUE, 3810779, 121977, 16175, 4337, 1733, 887, 534, 361, 265, 206, 169,
+            143, 125, 111, 101, 94, 88, 83, 79, 76, 74, 72, 70, 69, 68, 67, 67, 66, 66, 66, 66};
+    static final int[] biggestSimpleBinomials = {Integer.MAX_VALUE, Integer.MAX_VALUE,
+            Integer.MAX_VALUE, 2642246, 86251, 11724, 3218, 1313, 684, 419, 287, 214, 169, 139,
+            119, 105, 95, 87, 81, 76, 73, 70, 68, 66, 64, 63, 62, 62, 61, 61, 61};
+    // maxLog10ForLeadingZeros[i] == floor(log10(2^(Long.SIZE - i)))
+    /*
+     * This bitmask is used as an optimization for cheaply testing for divisiblity by 2, 3, or 5.
+     * Each bit is set to 1 for all remainders that indicate divisibility by 2, 3, or 5, so
+     * 1, 7, 11, 13, 17, 19, 23, 29 are set to 0. 30 and up don't matter because they won't be hit.
+     */
+    private static final int SIEVE_30 =
+            ~((1 << 1) | (1 << 7) | (1 << 11) | (1 << 13) | (1 << 17) | (1 << 19) | (1 << 23) | (1 << 29));
+    // halfPowersOf10[i] = largest long less than 10^(i + 0.5)
+    /*
+     * If n <= millerRabinBases[i][0], then testing n against bases millerRabinBases[i][1..]
+     * suffices
+     * to prove its primality. Values from miller-rabin.appspot.com.
+     *
+     * NOTE: We could get slightly better bases that would be treated as unsigned, but benchmarks
+     * showed negligible performance improvements.
+     */
+    private static final long[][] millerRabinBaseSets = {{291830, 126401071349994536L},
+            {885594168, 725270293939359937L, 3569819667048198375L}, {273919523040L, 15,
+            7363882082L, 992620450144556L}, {47636622961200L, 2, 2570940, 211991001, 3749873356L}
+            , {7999252175582850L, 2, 4130806001517L, 149795463772692060L, 186635894390467037L,
+            3967304179347715805L}, {585226005592931976L, 2, 123635709730000L, 9233062284813009L,
+            43835965440333360L, 761179012939631437L, 1263739024124850375L}, {Long.MAX_VALUE, 2,
+            325, 9375, 28178, 450775, 9780504, 1795265022}};
 
     /**
      * Returns {@code x}, rounded to a {@code double} with the specified rounding mode. If {@code x}
@@ -160,72 +229,6 @@ public final class LongMath {
   }*/
     private LongMath() {
     }
-    static final long MAX_SIGNED_POWER_OF_TWO = 1L << (Long.SIZE - 2);
-    /**
-     * The biggest half power of two that fits into an unsigned long
-     */
-    static final long MAX_POWER_OF_SQRT2_UNSIGNED = 0xB504F333F9DE6484L;
-    static final byte[] maxLog10ForLeadingZeros = {19, 18, 18, 18, 18, 17, 17, 17, 16, 16, 16, 15
-            , 15, 15, 15, 14, 14, 14, 13, 13, 13, 12, 12, 12, 12, 11, 11, 11, 10, 10, 10, 9, 9, 9
-            , 9, 8, 8, 8, 7, 7, 7, 6, 6, 6, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 0,
-            0, 0};
-    static final long[] powersOf10 = {1L, 10L, 100L, 1000L, 10000L, 100000L, 1000000L, 10000000L,
-            100000000L, 1000000000L, 10000000000L, 100000000000L, 1000000000000L, 10000000000000L
-            , 100000000000000L, 1000000000000000L, 10000000000000000L, 100000000000000000L,
-            1000000000000000000L};
-    static final long[] halfPowersOf10 = {3L, 31L, 316L, 3162L, 31622L, 316227L, 3162277L,
-            31622776L, 316227766L, 3162277660L, 31622776601L, 316227766016L, 3162277660168L,
-            31622776601683L, 316227766016837L, 3162277660168379L, 31622776601683793L,
-            316227766016837933L, 3162277660168379331L};
-    static final long FLOOR_SQRT_MAX_LONG = 3037000499L;
-    static final long[] factorials = {1L, 1L, 1L * 2, 1L * 2 * 3, 1L * 2 * 3 * 4,
-            1L * 2 * 3 * 4 * 5, 1L * 2 * 3 * 4 * 5 * 6, 1L * 2 * 3 * 4 * 5 * 6 * 7,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8, 1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10, 1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11
-            , 1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16 * 17,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16 * 17 * 18,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16 * 17 * 18 * 19,
-            1L * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12 * 13 * 14 * 15 * 16 * 17 * 18 * 19 * 20};
-    /*
-     * binomial(biggestBinomials[k], k) fits in a long, but not binomial(biggestBinomials[k] + 1,
-     *  k).
-     */
-    static final int[] biggestBinomials = {Integer.MAX_VALUE, Integer.MAX_VALUE,
-            Integer.MAX_VALUE, 3810779, 121977, 16175, 4337, 1733, 887, 534, 361, 265, 206, 169,
-            143, 125, 111, 101, 94, 88, 83, 79, 76, 74, 72, 70, 69, 68, 67, 67, 66, 66, 66, 66};
-    static final int[] biggestSimpleBinomials = {Integer.MAX_VALUE, Integer.MAX_VALUE,
-            Integer.MAX_VALUE, 2642246, 86251, 11724, 3218, 1313, 684, 419, 287, 214, 169, 139,
-            119, 105, 95, 87, 81, 76, 73, 70, 68, 66, 64, 63, 62, 62, 61, 61, 61};
-    // maxLog10ForLeadingZeros[i] == floor(log10(2^(Long.SIZE - i)))
-    /*
-     * This bitmask is used as an optimization for cheaply testing for divisiblity by 2, 3, or 5.
-     * Each bit is set to 1 for all remainders that indicate divisibility by 2, 3, or 5, so
-     * 1, 7, 11, 13, 17, 19, 23, 29 are set to 0. 30 and up don't matter because they won't be hit.
-     */
-    private static final int SIEVE_30 =
-            ~((1 << 1) | (1 << 7) | (1 << 11) | (1 << 13) | (1 << 17) | (1 << 19) | (1 << 23) | (1 << 29));
-
-    // halfPowersOf10[i] = largest long less than 10^(i + 0.5)
-    /*
-     * If n <= millerRabinBases[i][0], then testing n against bases millerRabinBases[i][1..]
-     * suffices
-     * to prove its primality. Values from miller-rabin.appspot.com.
-     *
-     * NOTE: We could get slightly better bases that would be treated as unsigned, but benchmarks
-     * showed negligible performance improvements.
-     */
-    private static final long[][] millerRabinBaseSets = {{291830, 126401071349994536L},
-            {885594168, 725270293939359937L, 3569819667048198375L}, {273919523040L, 15,
-            7363882082L, 992620450144556L}, {47636622961200L, 2, 2570940, 211991001, 3749873356L}
-            , {7999252175582850L, 2, 4130806001517L, 149795463772692060L, 186635894390467037L,
-            3967304179347715805L}, {585226005592931976L, 2, 123635709730000L, 9233062284813009L,
-            43835965440333360L, 761179012939631437L, 1263739024124850375L}, {Long.MAX_VALUE, 2,
-            325, 9375, 28178, 450775, 9780504, 1795265022}};
 
     /**
      * Returns the smallest power of two greater than or equal to {@code x}. This is equivalent to
@@ -233,7 +236,7 @@ public final class LongMath {
      *
      * @throws IllegalArgumentException if {@code x <= 0}
      * @throws ArithmeticException      of the next-higher power of two is not representable as a
-     * {@code
+     *                                  {@code
      *                                  long}, i.e. when {@code x > 2^62}
      * @since 20.0
      */
@@ -361,7 +364,7 @@ public final class LongMath {
      *
      * @throws IllegalArgumentException if {@code x <= 0}
      * @throws ArithmeticException      if {@code mode} is {@link RoundingMode#UNNECESSARY} and
-     * {@code x}
+     *                                  {@code x}
      *                                  is not a power of two
      */
     @SuppressWarnings("fallthrough")
@@ -400,7 +403,7 @@ public final class LongMath {
      *
      * @throws IllegalArgumentException if {@code x <= 0}
      * @throws ArithmeticException      if {@code mode} is {@link RoundingMode#UNNECESSARY} and
-     * {@code x}
+     *                                  {@code x}
      *                                  is not a power of ten
      */
     @SuppressWarnings("fallthrough")
@@ -496,7 +499,7 @@ public final class LongMath {
      * RoundingMode}.
      *
      * @throws ArithmeticException if {@code q == 0}, or if {@code mode == UNNECESSARY} and
-     * {@code a}
+     *                             {@code a}
      *                             is not an integer multiple of {@code b}
      */
     @SuppressWarnings("fallthrough")
@@ -1150,6 +1153,12 @@ public final class LongMath {
             }
         };
 
+        static boolean test(long base, long n) {
+            // Since base will be considered % n, it's okay if base > FLOOR_SQRT_MAX_LONG,
+            // so long as n <= FLOOR_SQRT_MAX_LONG.
+            return ((n <= FLOOR_SQRT_MAX_LONG) ? SMALL : LARGE).testWitness(base, n);
+        }
+
         /**
          * Returns a * b mod m.
          */
@@ -1200,12 +1209,6 @@ public final class LongMath {
                 a = squareMod(a, n);
             }
             return true;
-        }
-
-        static boolean test(long base, long n) {
-            // Since base will be considered % n, it's okay if base > FLOOR_SQRT_MAX_LONG,
-            // so long as n <= FLOOR_SQRT_MAX_LONG.
-            return ((n <= FLOOR_SQRT_MAX_LONG) ? SMALL : LARGE).testWitness(base, n);
         }
     }
 }

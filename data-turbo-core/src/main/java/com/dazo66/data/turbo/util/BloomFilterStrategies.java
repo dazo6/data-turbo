@@ -142,8 +142,10 @@ enum BloomFilterStrategies implements HeapBloomFilter.Strategy {
      * need compare-and-swap.
      */
     static final class LockFreeBitArray {
+        private static final int LONG_ADDRESSABLE_BITS = 6;
         final AtomicLongArray data;
         private final LongAddable bitCount;
+
         LockFreeBitArray(long bits) {
             checkArgument(bits > 0, "data length is zero!");
             // Avoid delegating to this(long[]), since AtomicLongArray(long[]) will clone its
@@ -164,6 +166,21 @@ enum BloomFilterStrategies implements HeapBloomFilter.Strategy {
                 bitCount += Long.bitCount(value);
             }
             this.bitCount.add(bitCount);
+        }
+
+        /**
+         * Careful here: if threads are mutating the atomicLongArray while this method is
+         * executing, the
+         * final long[] will be a "rolling snapshot" of the state of the bit array. This is
+         * usually good
+         * enough, but should be kept in mind.
+         */
+        public static long[] toPlainArray(AtomicLongArray atomicLongArray) {
+            long[] array = new long[atomicLongArray.length()];
+            for (int i = 0; i < array.length; ++i) {
+                array[i] = atomicLongArray.get(i);
+            }
+            return array;
         }
 
         /**
@@ -275,22 +292,6 @@ enum BloomFilterStrategies implements HeapBloomFilter.Strategy {
                 return Arrays.equals(toPlainArray(data), toPlainArray(lockFreeBitArray.data));
             }
             return false;
-        }
-        private static final int LONG_ADDRESSABLE_BITS = 6;
-
-        /**
-         * Careful here: if threads are mutating the atomicLongArray while this method is
-         * executing, the
-         * final long[] will be a "rolling snapshot" of the state of the bit array. This is
-         * usually good
-         * enough, but should be kept in mind.
-         */
-        public static long[] toPlainArray(AtomicLongArray atomicLongArray) {
-            long[] array = new long[atomicLongArray.length()];
-            for (int i = 0; i < array.length; ++i) {
-                array[i] = atomicLongArray.get(i);
-            }
-            return array;
         }
     }
 

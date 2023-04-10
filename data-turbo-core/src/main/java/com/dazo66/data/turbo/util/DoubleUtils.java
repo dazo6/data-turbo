@@ -17,7 +17,12 @@ package com.dazo66.data.turbo.util;
 import java.math.BigInteger;
 
 import static com.dazo66.data.turbo.util.Preconditions.checkArgument;
-import static java.lang.Double.*;
+import static java.lang.Double.MAX_EXPONENT;
+import static java.lang.Double.MIN_EXPONENT;
+import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Double.isNaN;
+import static java.lang.Double.longBitsToDouble;
 import static java.lang.Math.getExponent;
 
 /**
@@ -26,8 +31,6 @@ import static java.lang.Math.getExponent;
  * @author Louis Wasserman
  */
 final class DoubleUtils {
-    private DoubleUtils() {
-    }
     // The mask for the significand, according to the {@link
     // Double#doubleToRawLongBits(double)} spec.
     static final long SIGNIFICAND_MASK = 0x000fffffffffffffL;
@@ -44,6 +47,8 @@ final class DoubleUtils {
      */
     static final long IMPLICIT_BIT = SIGNIFICAND_MASK + 1;
     static final long ONE_BITS = 0x3ff0000000000000L;
+    private DoubleUtils() {
+    }
 
     static double nextDown(double d) {
         return -Math.nextUp(-d);

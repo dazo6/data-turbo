@@ -193,7 +193,9 @@ public final class Funnels {
         }
 
         private static class SerializedForm implements Serializable {
+            private static final long serialVersionUID = 0;
             private final String charsetCanonicalName;
+
             SerializedForm(Charset charset) {
                 this.charsetCanonicalName = charset.name();
             }
@@ -201,7 +203,6 @@ public final class Funnels {
             private Object readResolve() {
                 return stringFunnel(Charset.forName(charsetCanonicalName));
             }
-            private static final long serialVersionUID = 0;
         }
     }
 

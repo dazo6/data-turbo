@@ -1175,7 +1175,7 @@ public class Preconditions {
      * @param size  the size of that array, list or string
      * @return the value of {@code index}
      * @throws IndexOutOfBoundsException if {@code index} is negative or is not less than {@code
-     * size}
+     *                                   size}
      * @throws IllegalArgumentException  if {@code size} is negative
      */
     public static int checkElementIndex(int index, int size) {
@@ -1192,7 +1192,7 @@ public class Preconditions {
      * @param desc  the text to use to describe this index in an error message
      * @return the value of {@code index}
      * @throws IndexOutOfBoundsException if {@code index} is negative or is not less than {@code
-     * size}
+     *                                   size}
      * @throws IllegalArgumentException  if {@code size} is negative
      */
     public static int checkElementIndex(int index, int size, String desc) {
@@ -1221,7 +1221,7 @@ public class Preconditions {
      * @param size  the size of that array, list or string
      * @return the value of {@code index}
      * @throws IndexOutOfBoundsException if {@code index} is negative or is greater than {@code
-     * size}
+     *                                   size}
      * @throws IllegalArgumentException  if {@code size} is negative
      */
     public static int checkPositionIndex(int index, int size) {
@@ -1237,7 +1237,7 @@ public class Preconditions {
      * @param desc  the text to use to describe this index in an error message
      * @return the value of {@code index}
      * @throws IndexOutOfBoundsException if {@code index} is negative or is greater than {@code
-     * size}
+     *                                   size}
      * @throws IllegalArgumentException  if {@code size} is negative
      */
     public static int checkPositionIndex(int index, int size, String desc) {
@@ -1270,7 +1270,7 @@ public class Preconditions {
      * @param end   a user-supplied index identifying an ending position in an array, list or string
      * @param size  the size of that array, list or string
      * @throws IndexOutOfBoundsException if either index is negative or is greater than {@code
-     * size},
+     *                                   size},
      *                                   or if {@code end} is less than {@code start}
      * @throws IllegalArgumentException  if {@code size} is negative
      */

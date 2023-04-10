@@ -140,6 +140,40 @@ public abstract class Converter<A, B> implements Function<A, B> {
 
     // SPI methods (what subclasses must implement)
 
+    static <T extends Object> T uncheckedCastNullableTToT(T t) {
+        return t;
+    }
+
+    /**
+     * Returns a converter based on separate forward and backward functions. This is useful if the
+     * function instances already exist, or so that you can supply lambda expressions. If those
+     * circumstances don't apply, you probably don't need to use this; subclass {@code Converter}
+     * and
+     * implement its {@link #doForward} and {@link #doBackward} methods directly.
+     *
+     * <p>These functions will never be passed {@code null} and must not under any circumstances
+     * return {@code null}. If a value cannot be converted, the function should throw an unchecked
+     * exception (typically, but not necessarily, {@link IllegalArgumentException}).
+     *
+     * <p>The returned converter is serializable if both provided functions are.
+     *
+     * @since 17.0
+     */
+    public static <A, B> Converter<A, B> from(Function<? super A, ? extends B> forwardFunction,
+                                              Function<? super B, ? extends A> backwardFunction) {
+        return new FunctionBasedConverter<>(forwardFunction, backwardFunction);
+    }
+
+    // API (consumer-side) methods
+
+    /**
+     * Returns a serializable converter that always converts or reverses an object to itself.
+     */
+    @SuppressWarnings("unchecked") // implementation is "fully variant"
+    public static <T> Converter<T, T> identity() {
+        return (IdentityConverter<T>) IdentityConverter.INSTANCE;
+    }
+
     /**
      * Returns a representation of {@code a} as an instance of type {@code B}. If {@code a}
      * cannot be
@@ -160,7 +194,7 @@ public abstract class Converter<A, B> implements Function<A, B> {
      * @param b the instance to convert; will never be null
      * @return the converted instance; <b>must not</b> be null
      * @throws UnsupportedOperationException if backward conversion is not implemented; this
-     * should be
+     *                                       should be
      *                                       very rare. Note that if backward conversion is not
      *                                       only unimplemented but
      *                                       unimplement<i>able</i> (for example, consider a
@@ -170,35 +204,6 @@ public abstract class Converter<A, B> implements Function<A, B> {
      *                                       Function}.
      */
     protected abstract A doBackward(B b);
-
-    // API (consumer-side) methods
-
-    /**
-     * Returns a representation of {@code a} as an instance of type {@code B}.
-     *
-     * @return the converted value; is null <i>if and only if</i> {@code a} is null
-     */
-    public final B convert(A a) {
-        return correctedDoForward(a);
-    }
-
-    B correctedDoForward(A a) {
-        if (handleNullAutomatically) {
-            // TODO(kevinb): we shouldn't be checking for a null result at runtime. Assert?
-            return a == null ? null : checkNotNull(doForward(a));
-        } else {
-            return unsafeDoForward(a);
-        }
-    }
-
-    A correctedDoBackward(B b) {
-        if (handleNullAutomatically) {
-            // TODO(kevinb): we shouldn't be checking for a null result at runtime. Assert?
-            return b == null ? null : checkNotNull(doBackward(b));
-        } else {
-            return unsafeDoBackward(b);
-        }
-    }
 
     /*
      * LegacyConverter violates the contract of Converter by allowing its doForward and doBackward
@@ -229,6 +234,33 @@ public abstract class Converter<A, B> implements Function<A, B> {
      * checkers from issuing errors related to LegacyConverter, since it turns out that
      * LegacyConverter does violate the assumptions we make elsewhere.
      */
+
+    /**
+     * Returns a representation of {@code a} as an instance of type {@code B}.
+     *
+     * @return the converted value; is null <i>if and only if</i> {@code a} is null
+     */
+    public final B convert(A a) {
+        return correctedDoForward(a);
+    }
+
+    B correctedDoForward(A a) {
+        if (handleNullAutomatically) {
+            // TODO(kevinb): we shouldn't be checking for a null result at runtime. Assert?
+            return a == null ? null : checkNotNull(doForward(a));
+        } else {
+            return unsafeDoForward(a);
+        }
+    }
+
+    A correctedDoBackward(B b) {
+        if (handleNullAutomatically) {
+            // TODO(kevinb): we shouldn't be checking for a null result at runtime. Assert?
+            return b == null ? null : checkNotNull(doBackward(b));
+        } else {
+            return unsafeDoBackward(b);
+        }
+    }
 
     private B unsafeDoForward(A a) {
         return doForward(uncheckedCastNullableTToT(a));
@@ -397,45 +429,11 @@ public abstract class Converter<A, B> implements Function<A, B> {
         return super.equals(object);
     }
 
-    static <T extends Object> T uncheckedCastNullableTToT(T t) {
-        return t;
-    }
-
-    /**
-     * Returns a converter based on separate forward and backward functions. This is useful if the
-     * function instances already exist, or so that you can supply lambda expressions. If those
-     * circumstances don't apply, you probably don't need to use this; subclass {@code Converter}
-     * and
-     * implement its {@link #doForward} and {@link #doBackward} methods directly.
-     *
-     * <p>These functions will never be passed {@code null} and must not under any circumstances
-     * return {@code null}. If a value cannot be converted, the function should throw an unchecked
-     * exception (typically, but not necessarily, {@link IllegalArgumentException}).
-     *
-     * <p>The returned converter is serializable if both provided functions are.
-     *
-     * @since 17.0
-     */
-    public static <A, B> Converter<A, B> from(Function<? super A, ? extends B> forwardFunction,
-                                              Function<? super B, ? extends A> backwardFunction) {
-        return new FunctionBasedConverter<>(forwardFunction, backwardFunction);
-    }
-
-    /**
-     * Returns a serializable converter that always converts or reverses an object to itself.
-     */
-    @SuppressWarnings("unchecked") // implementation is "fully variant"
-    public static <T> Converter<T, T> identity() {
-        return (IdentityConverter<T>) IdentityConverter.INSTANCE;
-    }
-
     // Static converters
 
     private static final class ReverseConverter<A, B> extends Converter<B, A> implements Serializable {
+        private static final long serialVersionUID = 0L;
         final Converter<A, B> original;
-        ReverseConverter(Converter<A, B> original) {
-            this.original = original;
-        }
 
         /*
          * These gymnastics are a little confusing. Basically this class has neither legacy nor
@@ -444,6 +442,10 @@ public abstract class Converter<A, B> implements Function<A, B> {
          * never
          * be reached.
          */
+
+        ReverseConverter(Converter<A, B> original) {
+            this.original = original;
+        }
 
         @Override
         protected A doForward(B b) {
@@ -488,16 +490,12 @@ public abstract class Converter<A, B> implements Function<A, B> {
         public String toString() {
             return original + ".reverse()";
         }
-        private static final long serialVersionUID = 0L;
     }
 
     private static final class ConverterComposition<A, B, C> extends Converter<A, C> implements Serializable {
+        private static final long serialVersionUID = 0L;
         final Converter<A, B> first;
         final Converter<B, C> second;
-        ConverterComposition(Converter<A, B> first, Converter<B, C> second) {
-            this.first = first;
-            this.second = second;
-        }
 
         /*
          * These gymnastics are a little confusing. Basically this class has neither legacy nor
@@ -506,6 +504,11 @@ public abstract class Converter<A, B> implements Function<A, B> {
          * methods,
          * after which the do* methods should never be reached.
          */
+
+        ConverterComposition(Converter<A, B> first, Converter<B, C> second) {
+            this.first = first;
+            this.second = second;
+        }
 
         @Override
         protected C doForward(A a) {
@@ -545,7 +548,6 @@ public abstract class Converter<A, B> implements Function<A, B> {
         public String toString() {
             return first + ".andThen(" + second + ")";
         }
-        private static final long serialVersionUID = 0L;
     }
 
     private static final class FunctionBasedConverter<A, B> extends Converter<A, B> implements Serializable {
@@ -593,6 +595,9 @@ public abstract class Converter<A, B> implements Function<A, B> {
      * "pass-through type".
      */
     private static final class IdentityConverter<T> extends Converter<T, T> implements Serializable {
+        static final IdentityConverter<?> INSTANCE = new IdentityConverter<>();
+        private static final long serialVersionUID = 0L;
+
         @Override
         protected T doForward(T t) {
             return t;
@@ -608,6 +613,11 @@ public abstract class Converter<A, B> implements Function<A, B> {
             return this;
         }
 
+        /*
+         * We *could* override convertAll() to return its input, but it's a rather pointless
+         * optimization and opened up a weird type-safety problem.
+         */
+
         @Override
         <S> Converter<T, S> doAndThen(Converter<T, S> otherConverter) {
             return checkNotNull(otherConverter, "otherConverter");
@@ -618,15 +628,8 @@ public abstract class Converter<A, B> implements Function<A, B> {
             return "Converter.identity()";
         }
 
-        /*
-         * We *could* override convertAll() to return its input, but it's a rather pointless
-         * optimization and opened up a weird type-safety problem.
-         */
-
         private Object readResolve() {
             return INSTANCE;
         }
-        static final IdentityConverter<?> INSTANCE = new IdentityConverter<>();
-        private static final long serialVersionUID = 0L;
     }
 }

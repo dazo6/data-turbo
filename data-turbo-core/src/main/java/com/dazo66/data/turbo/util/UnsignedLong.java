@@ -36,9 +36,84 @@ import static com.dazo66.data.turbo.util.Preconditions.checkNotNull;
  */
 public final class UnsignedLong extends Number implements Comparable<UnsignedLong>, Serializable {
 
+    public static final UnsignedLong ZERO = new UnsignedLong(0);
+    public static final UnsignedLong ONE = new UnsignedLong(1);
+    public static final UnsignedLong MAX_VALUE = new UnsignedLong(-1L);
+    private static final long UNSIGNED_MASK = 0x7fffffffffffffffL;
     private final long value;
+
     private UnsignedLong(long value) {
         this.value = value;
+    }
+
+    /**
+     * Returns an {@code UnsignedLong} corresponding to a given bit representation. The argument is
+     * interpreted as an unsigned 64-bit value. Specifically, the sign bit of {@code bits} is
+     * interpreted as a normal bit, and all other bits are treated as usual.
+     *
+     * <p>If the argument is nonnegative, the returned result will be equal to {@code bits},
+     * otherwise, the result will be equal to {@code 2^64 + bits}.
+     *
+     * <p>To represent decimal constants less than {@code 2^63}, consider {@link #valueOf(long)}
+     * instead.
+     *
+     * @since 14.0
+     */
+    public static UnsignedLong fromLongBits(long bits) {
+        // TODO(lowasser): consider caching small values, like Long.valueOf
+        return new UnsignedLong(bits);
+    }
+
+    /**
+     * Returns an {@code UnsignedLong} representing the same value as the specified {@code long}.
+     *
+     * @throws IllegalArgumentException if {@code value} is negative
+     * @since 14.0
+     */
+    public static UnsignedLong valueOf(long value) {
+        checkArgument(value >= 0, "value (%s) is outside the range for an unsigned long value",
+                value);
+        return fromLongBits(value);
+    }
+
+    /**
+     * Returns a {@code UnsignedLong} representing the same value as the specified {@code
+     * BigInteger}.
+     * This is the inverse operation of {@link #bigIntegerValue()}.
+     *
+     * @throws IllegalArgumentException if {@code value} is negative or {@code value >= 2^64}
+     */
+    public static UnsignedLong valueOf(BigInteger value) {
+        checkNotNull(value);
+        checkArgument(value.signum() >= 0 && value.bitLength() <= Long.SIZE, "value (%s) is " +
+                "outside the range for an unsigned long value", value);
+        return fromLongBits(value.longValue());
+    }
+
+    /**
+     * Returns an {@code UnsignedLong} holding the value of the specified {@code String}, parsed
+     * as an
+     * unsigned {@code long} value.
+     *
+     * @throws NumberFormatException if the string does not contain a parsable unsigned {@code long}
+     *                               value
+     */
+    public static UnsignedLong valueOf(String string) {
+        return valueOf(string, 10);
+    }
+
+    /**
+     * Returns an {@code UnsignedLong} holding the value of the specified {@code String}, parsed
+     * as an
+     * unsigned {@code long} value in the specified radix.
+     *
+     * @throws NumberFormatException if the string does not contain a parsable unsigned {@code long}
+     *                               value, or {@code radix} is not between
+     *                               {@link Character#MIN_RADIX} and {@link
+     *                               Character#MAX_RADIX}
+     */
+    public static UnsignedLong valueOf(String string, int radix) {
+        return fromLongBits(UnsignedLongs.parseUnsignedLong(string, radix));
     }
 
     /**
@@ -191,79 +266,5 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
      */
     public String toString(int radix) {
         return UnsignedLongs.toString(value, radix);
-    }
-    public static final UnsignedLong ZERO = new UnsignedLong(0);
-    public static final UnsignedLong ONE = new UnsignedLong(1);
-    public static final UnsignedLong MAX_VALUE = new UnsignedLong(-1L);
-    private static final long UNSIGNED_MASK = 0x7fffffffffffffffL;
-
-    /**
-     * Returns an {@code UnsignedLong} corresponding to a given bit representation. The argument is
-     * interpreted as an unsigned 64-bit value. Specifically, the sign bit of {@code bits} is
-     * interpreted as a normal bit, and all other bits are treated as usual.
-     *
-     * <p>If the argument is nonnegative, the returned result will be equal to {@code bits},
-     * otherwise, the result will be equal to {@code 2^64 + bits}.
-     *
-     * <p>To represent decimal constants less than {@code 2^63}, consider {@link #valueOf(long)}
-     * instead.
-     *
-     * @since 14.0
-     */
-    public static UnsignedLong fromLongBits(long bits) {
-        // TODO(lowasser): consider caching small values, like Long.valueOf
-        return new UnsignedLong(bits);
-    }
-
-    /**
-     * Returns an {@code UnsignedLong} representing the same value as the specified {@code long}.
-     *
-     * @throws IllegalArgumentException if {@code value} is negative
-     * @since 14.0
-     */
-    public static UnsignedLong valueOf(long value) {
-        checkArgument(value >= 0, "value (%s) is outside the range for an unsigned long value",
-                value);
-        return fromLongBits(value);
-    }
-
-    /**
-     * Returns a {@code UnsignedLong} representing the same value as the specified {@code
-     * BigInteger}.
-     * This is the inverse operation of {@link #bigIntegerValue()}.
-     *
-     * @throws IllegalArgumentException if {@code value} is negative or {@code value >= 2^64}
-     */
-    public static UnsignedLong valueOf(BigInteger value) {
-        checkNotNull(value);
-        checkArgument(value.signum() >= 0 && value.bitLength() <= Long.SIZE, "value (%s) is " +
-                "outside the range for an unsigned long value", value);
-        return fromLongBits(value.longValue());
-    }
-
-    /**
-     * Returns an {@code UnsignedLong} holding the value of the specified {@code String}, parsed
-     * as an
-     * unsigned {@code long} value.
-     *
-     * @throws NumberFormatException if the string does not contain a parsable unsigned {@code long}
-     *                               value
-     */
-    public static UnsignedLong valueOf(String string) {
-        return valueOf(string, 10);
-    }
-
-    /**
-     * Returns an {@code UnsignedLong} holding the value of the specified {@code String}, parsed
-     * as an
-     * unsigned {@code long} value in the specified radix.
-     *
-     * @throws NumberFormatException if the string does not contain a parsable unsigned {@code long}
-     *                               value, or {@code radix} is not between
-     *                               {@link Character#MIN_RADIX} and {@link
-     *                               Character#MAX_RADIX}
-     */
-    public static UnsignedLong valueOf(String string, int radix) {
-        return fromLongBits(UnsignedLongs.parseUnsignedLong(string, radix));
     }
 }

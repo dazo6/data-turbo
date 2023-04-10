@@ -31,6 +31,11 @@ package com.dazo66.data.turbo.util;
 public interface SplitRule {
 
     /**
+     * 默认分割方案 使用空格进行分割
+     */
+    SplitRule NORMAL_SPLIT_RULE = c -> c == ' ' ? 0 : 1;
+
+    /**
      * 获得字符类型 同样的类型会进行切割
      * 其中 返回0 则表示忽略
      *
@@ -38,8 +43,4 @@ public interface SplitRule {
      * @return 字符对应的枚举数值 0表示忽略
      */
     int getCharType(char c);
-    /**
-     * 默认分割方案 使用空格进行分割
-     */
-    SplitRule NORMAL_SPLIT_RULE = c -> c == ' ' ? 0 : 1;
 }

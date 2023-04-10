@@ -2,11 +2,34 @@ package com.dazo66.data.turbo;
 
 import com.dazo66.data.turbo.model.DataTurboDetail;
 import com.dazo66.data.turbo.model.KeeperVersion;
-import com.dazo66.data.turbo.util.*;
+import com.dazo66.data.turbo.util.DataTurboConstants;
+import com.dazo66.data.turbo.util.DateUtils;
+import com.dazo66.data.turbo.util.IOUtils;
+import com.dazo66.data.turbo.util.Ints;
+import com.dazo66.data.turbo.util.LineReader;
+import com.dazo66.data.turbo.util.Longs;
+import com.dazo66.data.turbo.util.MemoryUtils;
+import com.dazo66.data.turbo.util.Pair;
+import com.dazo66.data.turbo.util.SplitUtils;
+import com.dazo66.data.turbo.util.SynchronizedTreeMap;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -248,13 +271,12 @@ public class NormalDataTurboBuilder extends AbstractDataTurboBuilder {
             }
             if (value.contains(DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2) || value.contains(DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_3)) {
                 if (flag) {
-                    addErrorCount(String.format("illegal char, key: %s, field: %s, value: %s",
-                            key, field, value));
+                    addErrorCount(String.format("illegal char, key: %s, field: %s, value: %s", key, field, value));
                     flag = false;
                 }
                 // 修复错误数据
-                value = value.replace(DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2,
-                        "").replace(DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_3, "");
+                value = value.replace(DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2, "")
+                        .replace(DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_3, "");
             }
             list.add(value);
         }
@@ -273,8 +295,7 @@ public class NormalDataTurboBuilder extends AbstractDataTurboBuilder {
             BufferedOutputStream outputStream =
                     new BufferedOutputStream(new FileOutputStream(pathname));
             for (Map.Entry<String, String> entry : tempMap.entrySet()) {
-                String s =
-                        entry.getKey() + DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_1 + entry.getValue() + DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2;
+                String s = entry.getKey() + DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_1 + entry.getValue() + DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2;
                 outputStream.write(s.getBytes(StandardCharsets.UTF_8));
             }
             outputStream.flush();
@@ -338,10 +359,8 @@ public class NormalDataTurboBuilder extends AbstractDataTurboBuilder {
 
     protected byte[] buildIndexBlock() {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        byte[] split1 =
-                DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_1.getBytes(StandardCharsets.UTF_8);
-        byte[] split2 =
-                DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2.getBytes(StandardCharsets.UTF_8);
+        byte[] split1 = DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_1.getBytes(StandardCharsets.UTF_8);
+        byte[] split2 = DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2.getBytes(StandardCharsets.UTF_8);
         int i = 0;
         for (String key : indexMap.keySet()) {
             try {
@@ -368,8 +387,7 @@ public class NormalDataTurboBuilder extends AbstractDataTurboBuilder {
             tempRecentOfFile.put(s, "");
         }
         while ((nextFromCache = getNextFromCache()) != null) {
-            byte[] bytes =
-                    (nextFromCache.getLeft() + DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2 + nextFromCache.getRight() + DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_3).getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = (nextFromCache.getLeft() + DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2 + nextFromCache.getRight() + DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_3).getBytes(StandardCharsets.UTF_8);
             valueDataStream.write(bytes);
             long l = keyCount.get() / indexCount;
             if ((tempRecentOfFile.isEmpty() && tempMap.isEmpty()) || count % l == 0) {
@@ -387,8 +405,7 @@ public class NormalDataTurboBuilder extends AbstractDataTurboBuilder {
     protected void initTempFileReader() {
         tempFiles.forEach(s -> {
             try {
-                tempReaders.put(s, new LineReader(new FileReader(s),
-                        DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2.charAt(0)));
+                tempReaders.put(s, new LineReader(new FileReader(s), DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2.charAt(0)));
             } catch (FileNotFoundException e) {
                 closeTempFile();
                 throw new RuntimeException("can not find file: " + s);
@@ -410,9 +427,7 @@ public class NormalDataTurboBuilder extends AbstractDataTurboBuilder {
             return null;
         }
         // 先获得最小的key
-        String currentMin = tempRecentOfFile.isEmpty() ? null :
-                tempRecentOfFile.values().stream().min((o1, o2) -> getKeyPredictor().compare(o1,
-                        o2)).get();
+        String currentMin = tempRecentOfFile.isEmpty() ? null : tempRecentOfFile.values().stream().min((o1, o2) -> getKeyPredictor().compare(o1, o2)).get();
         String first = tempMap.firstKey();
         // 如果已经比文件中的下一个要小了 就先返回
         if (first != null && (currentMin == null || getKeyPredictor().compare(currentMin, first) > 0)) {

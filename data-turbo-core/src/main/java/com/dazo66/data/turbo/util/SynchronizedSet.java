@@ -31,6 +31,8 @@ import java.util.Set;
  * @author dazo66
  **/
 public class SynchronizedSet<E> extends SynchronizedCollection<E> implements Set<E> {
+    private static final long serialVersionUID = 487447009682186044L;
+
     public SynchronizedSet(Set<E> s) {
         super(s);
     }
@@ -55,5 +57,4 @@ public class SynchronizedSet<E> extends SynchronizedCollection<E> implements Set
             return c.equals(o);
         }
     }
-    private static final long serialVersionUID = 487447009682186044L;
 }

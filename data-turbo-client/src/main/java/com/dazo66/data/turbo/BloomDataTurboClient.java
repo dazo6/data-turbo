@@ -11,8 +11,9 @@ import com.dazo66.data.turbo.util.MemoryUtils;
 
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
@@ -54,8 +55,7 @@ public class BloomDataTurboClient extends AbstractDataTurboClient {
     @Override
     public void load() throws Exception {
         lock.lock();
-        try (BufferedInputStream bufferedOutputStream =
-                new BufferedInputStream(new FileInputStream(getDataTurboDetail().getDataFile()))) {
+        try (BufferedInputStream bufferedOutputStream = new BufferedInputStream(Files.newInputStream(Paths.get(getDataTurboDetail().getDataFile())))) {
             LoadEnum loadEnum = getDataTurboDetail().getLoadEnum();
             Predicate<CharSequence> bloomFilter = null;
             if (loadEnum == LoadEnum.HEAP) {

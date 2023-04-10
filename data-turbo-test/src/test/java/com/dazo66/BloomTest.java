@@ -19,6 +19,70 @@ import java.util.Random;
  **/
 public class BloomTest {
 
+    private static final String str =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()<>?:";
+    private static final String str1 = "收到时代和我抢会发生看到击破强迫你脾气饿哦是丢啊回收丢啊丢啊和深度和";
+    private static final long seed = 12379127398123L;
+    public static Random random;
+
+    public static String getRandomString() {
+        StringBuilder sb = new StringBuilder();
+        int length = 40 + random.nextInt(100);
+        for (int i = 0; i < length; i++) {
+            int number = random.nextInt(str.length());
+            sb.append(str.charAt(number));
+        }
+        return sb.toString();
+    }
+
+    public static String getRandomString1() {
+        StringBuilder sb = new StringBuilder();
+        int length = 40 + random.nextInt(100);
+        for (int i = 0; i < length; i++) {
+            int number = random.nextInt(str1.length());
+            sb.append(str.charAt(number));
+        }
+        return sb.toString();
+    }
+
+    private static DataTurboDetail build(DataTurboDetail dataTurboDetail, int count,
+                                         long randomSeed) throws Exception {
+        BloomDataTurboBuilder bloomDataTurboBuilder = new BloomDataTurboBuilder(dataTurboDetail);
+        random = new Random(randomSeed);
+        for (int i = 0; i < count; i++) {
+            String randomString = getRandomString();
+            bloomDataTurboBuilder.inputData(randomString, null);
+        }
+        return bloomDataTurboBuilder.build();
+    }
+
+    private static long check(DataTurboDetail dataTurboDetail, int count, long randomSeed) throws Exception {
+        BloomDataTurboClient bloomDataTurboClient = new BloomDataTurboClient(dataTurboDetail);
+        bloomDataTurboClient.load();
+        random = new Random(randomSeed);
+        Long totalTime = 0L;
+        for (int i = 0; i < count; i++) {
+            String randomString = getRandomString();
+            long l1 = System.nanoTime();
+            boolean condition = bloomDataTurboClient.searchNameList(randomString);
+            totalTime += System.nanoTime() - l1;
+            if (!condition) {
+                throw new RuntimeException("bloom 过滤器检查失败" + i + randomString);
+            }
+        }
+        return totalTime;
+    }
+
+    @AfterClass
+    public static void checkFileDif() throws Exception {
+        File file = new File("test/test.bloom");
+        File file1 = new File("test/test.bloom_heap");
+        File file2 = new File("test/test.bloom_disk");
+        file.delete();
+        file1.delete();
+        file2.delete();
+    }
+
     @Test
     public void testHeapModeBuildDiskModeLoad() throws Exception {
         random = new Random(seed);
@@ -169,69 +233,6 @@ public class BloomTest {
         b1.close();
         b2.close();
         System.out.println("不同模式文件一致~");
-    }
-    private static final String str =
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()<>?:";
-    private static final String str1 = "收到时代和我抢会发生看到击破强迫你脾气饿哦是丢啊回收丢啊丢啊和深度和";
-    private static final long seed = 12379127398123L;
-    public static Random random;
-
-    public static String getRandomString() {
-        StringBuilder sb = new StringBuilder();
-        int length = 40 + random.nextInt(100);
-        for (int i = 0; i < length; i++) {
-            int number = random.nextInt(str.length());
-            sb.append(str.charAt(number));
-        }
-        return sb.toString();
-    }
-
-    public static String getRandomString1() {
-        StringBuilder sb = new StringBuilder();
-        int length = 40 + random.nextInt(100);
-        for (int i = 0; i < length; i++) {
-            int number = random.nextInt(str1.length());
-            sb.append(str.charAt(number));
-        }
-        return sb.toString();
-    }
-
-    private static DataTurboDetail build(DataTurboDetail dataTurboDetail, int count,
-                                         long randomSeed) throws Exception {
-        BloomDataTurboBuilder bloomDataTurboBuilder = new BloomDataTurboBuilder(dataTurboDetail);
-        random = new Random(randomSeed);
-        for (int i = 0; i < count; i++) {
-            String randomString = getRandomString();
-            bloomDataTurboBuilder.inputData(randomString, null);
-        }
-        return bloomDataTurboBuilder.build();
-    }
-
-    private static long check(DataTurboDetail dataTurboDetail, int count, long randomSeed) throws Exception {
-        BloomDataTurboClient bloomDataTurboClient = new BloomDataTurboClient(dataTurboDetail);
-        bloomDataTurboClient.load();
-        random = new Random(randomSeed);
-        Long totalTime = 0L;
-        for (int i = 0; i < count; i++) {
-            String randomString = getRandomString();
-            long l1 = System.nanoTime();
-            boolean condition = bloomDataTurboClient.searchNameList(randomString);
-            totalTime += System.nanoTime() - l1;
-            if (!condition) {
-                throw new RuntimeException("bloom 过滤器检查失败" + i + randomString);
-            }
-        }
-        return totalTime;
-    }
-
-    @AfterClass
-    public static void checkFileDif() throws Exception {
-        File file = new File("test/test.bloom");
-        File file1 = new File("test/test.bloom_heap");
-        File file2 = new File("test/test.bloom_disk");
-        file.delete();
-        file1.delete();
-        file2.delete();
     }
 
 }

@@ -20,6 +20,65 @@ import java.util.Random;
  **/
 public class NormalDataTest {
 
+    private static final String str =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final String str1 = "收到时代和我抢会发生看2361872631hdlkjsahadjcqwoiuey1983cpiuzhczoixj" +
+            "到击破强迫你脾气饿哦是丢啊回收丢啊丢啊和深哦啊三大件三大件按时u大师u的白啤酒度和";
+    private static final long seed = 12379127398123L;
+
+    public static String getRandomString2(Random random) {
+        StringBuilder sb = new StringBuilder();
+        int length = 4000 + random.nextInt(30);
+        for (int i = 0; i < length; i++) {
+            int number = random.nextInt(str1.length());
+            sb.append(str1.charAt(number));
+        }
+        return sb.toString();
+    }
+
+    public static String getRandomString1(Random random) {
+        StringBuilder sb = new StringBuilder();
+        int length = 40 + random.nextInt(30);
+        for (int i = 0; i < length; i++) {
+            int number = random.nextInt(str1.length());
+            sb.append(str1.charAt(number));
+        }
+        return sb.toString();
+    }
+
+    public static String getRandomString(Random random) {
+        StringBuilder sb = new StringBuilder();
+        int length = 4 + random.nextInt(10);
+        for (int i = 0; i < length; i++) {
+            int number = random.nextInt(str.length());
+            sb.append(str.charAt(number));
+        }
+        return sb.toString();
+    }
+
+    public static byte[] int2Bytes(int data) {
+        byte[] bytes = new byte[4];
+
+        for (int i = 0; i < 4; i++) {
+            bytes[i] = (byte) ((data >> 24 - 8 * i) & 0xFF);
+        }
+
+        return bytes;
+    }
+
+    public static String parseIntIp(int ip) {
+        byte[] bytes = int2Bytes(ip);
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < 4; i++) {
+            int network = bytes[i] & 0xFF;
+            builder.append(network);
+            if (i != 3) {
+                builder.append(".");
+            }
+        }
+        return builder.toString();
+    }
+
     @Test
     public void test0Field() throws Exception {
         Random random = new Random(seed);
@@ -31,11 +90,11 @@ public class NormalDataTest {
         dataTurboDetail.setProp(DataTurboConstants.BUILDER_CONFIG_NORMAL_WRITE_TIME, "false");
         NormalDataTurboBuilder normalDataTurboBuilder =
                 new NormalDataTurboBuilder(dataTurboDetail) {
-            @Override
-            public int getMaxCountPreSplit() {
-                return 1000;
-            }
-        };
+                    @Override
+                    public int getMaxCountPreSplit() {
+                        return 1000;
+                    }
+                };
         for (int i = 0; i < testCount; i++) {
             Map<String, Object> data = new HashMap<>();
             data.put("text", getRandomString1(random));
@@ -87,11 +146,11 @@ public class NormalDataTest {
         dataTurboDetail.setProp(DataTurboConstants.BUILDER_CONFIG_NORMAL_WRITE_TIME, "false");
         NormalDataTurboBuilder normalDataTurboBuilder =
                 new NormalDataTurboBuilder(dataTurboDetail) {
-            @Override
-            public int getMaxCountPreSplit() {
-                return 1000;
-            }
-        };
+                    @Override
+                    public int getMaxCountPreSplit() {
+                        return 1000;
+                    }
+                };
         for (int i = 0; i < testCount; i++) {
             Map<String, Object> data = new HashMap<>();
             data.put("text", getRandomString1(random));
@@ -141,11 +200,11 @@ public class NormalDataTest {
         dataTurboDetail.setProp(DataTurboConstants.BUILDER_CONFIG_NORMAL_WRITE_TIME, "false");
         NormalDataTurboBuilder normalDataTurboBuilder =
                 new NormalDataTurboBuilder(dataTurboDetail) {
-            @Override
-            public int getMaxCountPreSplit() {
-                return -1;
-            }
-        };
+                    @Override
+                    public int getMaxCountPreSplit() {
+                        return -1;
+                    }
+                };
         for (int i = 0; i < testCount; i++) {
             Map<String, Object> data = new HashMap<>();
             data.put("text1", getRandomString1(random));
@@ -197,11 +256,11 @@ public class NormalDataTest {
         dataTurboDetail.setProp(DataTurboConstants.BUILDER_CONFIG_NORMAL_WRITE_TIME, "false");
         NormalDataTurboBuilder normalDataTurboBuilder =
                 new NormalDataTurboBuilder(dataTurboDetail) {
-            @Override
-            public int getMaxCountPreSplit() {
-                return -1;
-            }
-        };
+                    @Override
+                    public int getMaxCountPreSplit() {
+                        return -1;
+                    }
+                };
         for (int i = 0; i < testCount; i++) {
             Map<String, Object> data = new HashMap<>();
             data.put("text1", getRandomString2(random));
@@ -254,11 +313,11 @@ public class NormalDataTest {
         dataTurboDetail.setProp(DataTurboConstants.BUILDER_CONFIG_NORMAL_ERROR_TOLERATING, "0");
         NormalDataTurboBuilder normalDataTurboBuilder =
                 new NormalDataTurboBuilder(dataTurboDetail) {
-            @Override
-            public int getMaxCountPreSplit() {
-                return -1;
-            }
-        };
+                    @Override
+                    public int getMaxCountPreSplit() {
+                        return -1;
+                    }
+                };
         for (int i = 0; i < testCount; i++) {
             Map<String, Object> data = new HashMap<>();
             data.put("text1", getRandomString(random));
@@ -319,11 +378,11 @@ public class NormalDataTest {
         dataTurboDetail.setProp(DataTurboConstants.BUILDER_CONFIG_NORMAL_WRITE_TIME, "false");
         NormalDataTurboBuilder normalDataTurboBuilder =
                 new NormalDataTurboBuilder(dataTurboDetail) {
-            @Override
-            public int getMaxCountPreSplit() {
-                return -1;
-            }
-        };
+                    @Override
+                    public int getMaxCountPreSplit() {
+                        return -1;
+                    }
+                };
         for (int i = 0; i < testCount; i++) {
             Map<String, Object> data = new HashMap<>();
             data.put("text1", getRandomString2(random));
@@ -362,63 +421,5 @@ public class NormalDataTest {
                 throw new RuntimeException();
             }
         }
-    }
-    private static final String str =
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final String str1 = "收到时代和我抢会发生看2361872631hdlkjsahadjcqwoiuey1983cpiuzhczoixj" +
-            "到击破强迫你脾气饿哦是丢啊回收丢啊丢啊和深哦啊三大件三大件按时u大师u的白啤酒度和";
-    private static final long seed = 12379127398123L;
-
-    public static String getRandomString2(Random random) {
-        StringBuilder sb = new StringBuilder();
-        int length = 4000 + random.nextInt(30);
-        for (int i = 0; i < length; i++) {
-            int number = random.nextInt(str1.length());
-            sb.append(str1.charAt(number));
-        }
-        return sb.toString();
-    }
-
-    public static String getRandomString1(Random random) {
-        StringBuilder sb = new StringBuilder();
-        int length = 40 + random.nextInt(30);
-        for (int i = 0; i < length; i++) {
-            int number = random.nextInt(str1.length());
-            sb.append(str1.charAt(number));
-        }
-        return sb.toString();
-    }
-
-    public static String getRandomString(Random random) {
-        StringBuilder sb = new StringBuilder();
-        int length = 4 + random.nextInt(10);
-        for (int i = 0; i < length; i++) {
-            int number = random.nextInt(str.length());
-            sb.append(str.charAt(number));
-        }
-        return sb.toString();
-    }
-
-    public static byte[] int2Bytes(int data) {
-        byte[] bytes = new byte[4];
-
-        for (int i = 0; i < 4; i++) {
-            bytes[i] = (byte) ((data >> 24 - 8 * i) & 0xFF);
-        }
-
-        return bytes;
-    }
-
-    public static String parseIntIp(int ip) {
-        byte[] bytes = int2Bytes(ip);
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < 4; i++) {
-            int network = bytes[i] & 0xFF;
-            builder.append(network);
-            if (i != 3) {
-                builder.append(".");
-            }
-        }
-        return builder.toString();
     }
 }

@@ -18,7 +18,9 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Comparator;
 
-import static com.dazo66.data.turbo.util.Preconditions.*;
+import static com.dazo66.data.turbo.util.Preconditions.checkArgument;
+import static com.dazo66.data.turbo.util.Preconditions.checkNotNull;
+import static com.dazo66.data.turbo.util.Preconditions.checkPositionIndexes;
 
 /**
  * Static utility methods pertaining to {@code long} primitives that interpret values as
@@ -44,9 +46,10 @@ import static com.dazo66.data.turbo.util.Preconditions.*;
  * @since 10.0
  */
 public final class UnsignedLongs {
+    public static final long MAX_VALUE = -1L; // Equivalent to 2^64 - 1
+
     private UnsignedLongs() {
     }
-    public static final long MAX_VALUE = -1L; // Equivalent to 2^64 - 1
 
     /**
      * A (self-inverse) bijection which converts the ordering on unsigned longs to the ordering on
@@ -310,7 +313,7 @@ public final class UnsignedLongs {
      * @param string the string containing the unsigned {@code long} representation to be parsed.
      * @param radix  the radix to use while parsing {@code string}
      * @throws NumberFormatException if the string does not contain a valid unsigned {@code long}
-     * with
+     *                               with
      *                               the given radix, or if {@code radix} is not between
      *                               {@link Character#MIN_RADIX} and {@link
      *                               Character#MAX_RADIX}.
@@ -463,8 +466,6 @@ public final class UnsignedLongs {
      * unless the user is actually calling a parse method.
      */
     private static final class ParseOverflowDetection {
-        private ParseOverflowDetection() {
-        }
         // calculated as 0xffffffffffffffff / radix
         static final long[] maxValueDivs = new long[Character.MAX_RADIX + 1];
         static final int[] maxValueMods = new int[Character.MAX_RADIX + 1];
@@ -477,6 +478,9 @@ public final class UnsignedLongs {
                 maxValueMods[i] = (int) remainder(MAX_VALUE, i);
                 maxSafeDigits[i] = overflow.toString(i).length() - 1;
             }
+        }
+
+        private ParseOverflowDetection() {
         }
 
         /**

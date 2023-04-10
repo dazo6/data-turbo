@@ -28,7 +28,11 @@ package com.dazo66.data.turbo.util;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -38,11 +42,13 @@ import java.util.function.Function;
  **/
 public class SynchronizedTreeMap<K, V> extends TreeMap<K, V> implements Serializable {
 
+    private static final long serialVersionUID = 1978198479659022715L;
     final Object mutex;        // Object on which to synchronize
     private final TreeMap<K, V> m;     // Backing Map
     private transient Set<K> keySet;
     private transient Set<Map.Entry<K, V>> entrySet;
     private transient Collection<V> values;
+
     public SynchronizedTreeMap(TreeMap<K, V> m) {
         this.m = Objects.requireNonNull(m);
         mutex = this;
@@ -269,6 +275,5 @@ public class SynchronizedTreeMap<K, V> extends TreeMap<K, V> implements Serializ
             s.defaultWriteObject();
         }
     }
-    private static final long serialVersionUID = 1978198479659022715L;
 
 }

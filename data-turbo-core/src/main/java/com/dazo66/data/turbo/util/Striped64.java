@@ -83,6 +83,38 @@ abstract class Striped64 extends Number {
      */
 
     /**
+     * ThreadLocal holding a single-slot int array holding hash code. Unlike the JDK8 version of
+     * this
+     * class, we use a suboptimal int[] representation to avoid introducing a new type that can
+     * impede
+     * class-unloading when ThreadLocals are not removed.
+     */
+    static final ThreadLocal<int[]> threadHashCode = new ThreadLocal<>();
+    /**
+     * Generator of new random hash codes
+     */
+    static final Random rng = new Random();
+    /**
+     * Number of CPUS, to place bound on table size
+     */
+    static final int NCPU = Runtime.getRuntime().availableProcessors();
+    // Unsafe mechanics
+    private static final sun.misc.Unsafe UNSAFE;
+    private static final long baseOffset;
+    private static final long busyOffset;
+
+    static {
+        try {
+            UNSAFE = getUnsafe();
+            Class<?> sk = Striped64.class;
+            baseOffset = UNSAFE.objectFieldOffset(sk.getDeclaredField("base"));
+            busyOffset = UNSAFE.objectFieldOffset(sk.getDeclaredField("busy"));
+        } catch (Exception e) {
+            throw new Error(e);
+        }
+    }
+
+    /**
      * Table of cells. When non-null, size is a power of 2.
      */
     transient volatile Cell[] cells;
@@ -99,6 +131,38 @@ abstract class Striped64 extends Number {
      * Package-private default constructor
      */
     Striped64() {
+    }
+
+    /**
+     * Returns a sun.misc.Unsafe. Suitable for use in a 3rd party package. Replace with a simple
+     * call
+     * to Unsafe.getUnsafe when integrating into a jdk.
+     *
+     * @return a sun.misc.Unsafe
+     */
+    private static sun.misc.Unsafe getUnsafe() {
+        try {
+            return sun.misc.Unsafe.getUnsafe();
+        } catch (SecurityException tryReflectionInstead) {
+        }
+        try {
+            return java.security.AccessController.doPrivileged(new java.security.PrivilegedExceptionAction<sun.misc.Unsafe>() {
+                @Override
+                public sun.misc.Unsafe run() throws Exception {
+                    Class<sun.misc.Unsafe> k = sun.misc.Unsafe.class;
+                    for (java.lang.reflect.Field f : k.getDeclaredFields()) {
+                        f.setAccessible(true);
+                        Object x = f.get(null);
+                        if (k.isInstance(x)) {
+                            return k.cast(x);
+                        }
+                    }
+                    throw new NoSuchFieldError("the Unsafe");
+                }
+            });
+        } catch (java.security.PrivilegedActionException e) {
+            throw new RuntimeException("Could not initialize intrinsics", e.getCause());
+        }
     }
 
     /**
@@ -238,69 +302,6 @@ abstract class Striped64 extends Number {
             }
         }
     }
-    /**
-     * ThreadLocal holding a single-slot int array holding hash code. Unlike the JDK8 version of
-     * this
-     * class, we use a suboptimal int[] representation to avoid introducing a new type that can
-     * impede
-     * class-unloading when ThreadLocals are not removed.
-     */
-    static final ThreadLocal<int[]> threadHashCode = new ThreadLocal<>();
-    /**
-     * Generator of new random hash codes
-     */
-    static final Random rng = new Random();
-    /**
-     * Number of CPUS, to place bound on table size
-     */
-    static final int NCPU = Runtime.getRuntime().availableProcessors();
-    // Unsafe mechanics
-    private static final sun.misc.Unsafe UNSAFE;
-    private static final long baseOffset;
-    private static final long busyOffset;
-
-    static {
-        try {
-            UNSAFE = getUnsafe();
-            Class<?> sk = Striped64.class;
-            baseOffset = UNSAFE.objectFieldOffset(sk.getDeclaredField("base"));
-            busyOffset = UNSAFE.objectFieldOffset(sk.getDeclaredField("busy"));
-        } catch (Exception e) {
-            throw new Error(e);
-        }
-    }
-
-    /**
-     * Returns a sun.misc.Unsafe. Suitable for use in a 3rd party package. Replace with a simple
-     * call
-     * to Unsafe.getUnsafe when integrating into a jdk.
-     *
-     * @return a sun.misc.Unsafe
-     */
-    private static sun.misc.Unsafe getUnsafe() {
-        try {
-            return sun.misc.Unsafe.getUnsafe();
-        } catch (SecurityException tryReflectionInstead) {
-        }
-        try {
-            return java.security.AccessController.doPrivileged(new java.security.PrivilegedExceptionAction<sun.misc.Unsafe>() {
-                @Override
-                public sun.misc.Unsafe run() throws Exception {
-                    Class<sun.misc.Unsafe> k = sun.misc.Unsafe.class;
-                    for (java.lang.reflect.Field f : k.getDeclaredFields()) {
-                        f.setAccessible(true);
-                        Object x = f.get(null);
-                        if (k.isInstance(x)) {
-                            return k.cast(x);
-                        }
-                    }
-                    throw new NoSuchFieldError("the Unsafe");
-                }
-            });
-        } catch (java.security.PrivilegedActionException e) {
-            throw new RuntimeException("Could not initialize intrinsics", e.getCause());
-        }
-    }
 
     /**
      * Padded variant of AtomicLong supporting only raw accesses plus CAS. The value field is placed
@@ -311,17 +312,6 @@ abstract class Striped64 extends Number {
      * provided.
      */
     static final class Cell {
-        volatile long p0, p1, p2, p3, p4, p5, p6;
-        volatile long value;
-        volatile long q0, q1, q2, q3, q4, q5, q6;
-
-        Cell(long x) {
-            value = x;
-        }
-
-        final boolean cas(long cmp, long val) {
-            return UNSAFE.compareAndSwapLong(this, valueOffset, cmp, val);
-        }
         // Unsafe mechanics
         private static final sun.misc.Unsafe UNSAFE;
         private static final long valueOffset;
@@ -334,6 +324,17 @@ abstract class Striped64 extends Number {
             } catch (Exception e) {
                 throw new Error(e);
             }
+        }
+
+        volatile long p0, p1, p2, p3, p4, p5, p6;
+        volatile long value;
+        volatile long q0, q1, q2, q3, q4, q5, q6;
+        Cell(long x) {
+            value = x;
+        }
+
+        final boolean cas(long cmp, long val) {
+            return UNSAFE.compareAndSwapLong(this, valueOffset, cmp, val);
         }
     }
 }

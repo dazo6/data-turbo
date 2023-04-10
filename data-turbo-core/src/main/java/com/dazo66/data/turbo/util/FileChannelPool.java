@@ -15,6 +15,10 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class FileChannelPool {
 
+    private static final int CAPACITY = 50;
+    private static final int QUEUE_MAX = 80;
+    private static final AtomicLong CREATE_NUM = new AtomicLong();
+    private static final AtomicLong KILL_NUM = new AtomicLong();
     public final FileChannel writerChannel;
     private final LinkedBlockingDeque<Long> writerQueue = new LinkedBlockingDeque<>(1000);
     private final Thread writeThread;
@@ -24,6 +28,7 @@ public class FileChannelPool {
     private volatile boolean cleaning;
     private AtomicLong inNum;
     private AtomicLong outNum;
+
     public FileChannelPool(File file) throws FileNotFoundException {
         if (file == null || !file.exists() || file.isDirectory()) {
             throw new FileNotFoundException("The sourceFile doesn't exist or is a directory : " + file);
@@ -53,6 +58,14 @@ public class FileChannelPool {
         });
         writeThread.setDaemon(true);
         writeThread.start();
+    }
+
+    public static long getCreateNum() {
+        return CREATE_NUM.get();
+    }
+
+    public static long getKillNum() {
+        return KILL_NUM.get();
     }
 
     public int getWriterQueueCount() {
@@ -148,17 +161,5 @@ public class FileChannelPool {
         } catch (IOException e) {
             System.out.println(e);
         }
-    }
-    private static final int CAPACITY = 50;
-    private static final int QUEUE_MAX = 80;
-    private static final AtomicLong CREATE_NUM = new AtomicLong();
-    private static final AtomicLong KILL_NUM = new AtomicLong();
-
-    public static long getCreateNum() {
-        return CREATE_NUM.get();
-    }
-
-    public static long getKillNum() {
-        return KILL_NUM.get();
     }
 }

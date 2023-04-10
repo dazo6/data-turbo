@@ -14,7 +14,12 @@
 
 package com.dazo66.data.turbo.util;
 
-import java.io.*;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.Serializable;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -53,6 +58,205 @@ public class DiskBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
         this.numHashFunctions = numHashFunctions;
         this.funnel = checkNotNull(funnel);
         this.strategy = checkNotNull(strategy);
+    }
+
+    /**
+     * Creates a {@link DiskBloomFilter} with the expected number of insertions and expected false
+     * positive probability.
+     *
+     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
+     * specified,
+     * will result in its saturation, and a sharp deterioration of its false positive probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @param fpp                the desired false positive probability (must be positive and
+     *                           less than 1.0)
+     * @return a {@code BloomFilter}
+     */
+    public static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
+                                                               int expectedInsertions, double fpp) {
+        return create(funnel, (long) expectedInsertions, fpp);
+    }
+
+    /**
+     * Creates a {@link DiskBloomFilter} with the expected number of insertions and expected false
+     * positive probability.
+     *
+     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
+     * specified,
+     * will result in its saturation, and a sharp deterioration of its false positive probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @param fpp                the desired false positive probability (must be positive and
+     *                           less than 1.0)
+     * @return a {@code BloomFilter}
+     * @since 19.0
+     */
+    public static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
+                                                               long expectedInsertions,
+                                                               double fpp) {
+        return create(funnel, expectedInsertions, fpp, DiskBloomFilterStrategies.MURMUR128_MITZ_64);
+    }
+
+    static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
+                                                        long expectedInsertions, double fpp,
+                                                        Strategy strategy) {
+        checkNotNull(funnel);
+        checkArgument(expectedInsertions >= 0, "Expected insertions (%s) must be >= 0",
+                expectedInsertions);
+        checkArgument(fpp > 0.0, "False positive probability (%s) must be > 0.0", fpp);
+        checkArgument(fpp < 1.0, "False positive probability (%s) must be < 1.0", fpp);
+        checkNotNull(strategy);
+
+        if (expectedInsertions == 0) {
+            expectedInsertions = 1;
+        }
+        long numBits = optimalNumOfBits(expectedInsertions, fpp);
+        int numHashFunctions = optimalNumOfHashFunctions(expectedInsertions, numBits);
+        try {
+            return new DiskBloomFilter<T>(new DiskBloomFilterStrategies.DiskBitArray(numBits),
+                    numHashFunctions, funnel, strategy);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new IllegalArgumentException("Could not create BloomFilter of " + numBits + " " + "bits", e);
+        }
+    }
+
+    /**
+     * Creates a {@link DiskBloomFilter} with the expected number of insertions and a default
+     * expected
+     * false positive probability of 3%.
+     *
+     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
+     * specified,
+     * will result in its saturation, and a sharp deterioration of its false positive probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @return a {@code BloomFilter}
+     */
+    public static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
+                                                               int expectedInsertions) {
+        return create(funnel, (long) expectedInsertions);
+    }
+
+    /**
+     * Creates a {@link DiskBloomFilter} with the expected number of insertions and a default
+     * expected
+     * false positive probability of 3%.
+     *
+     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
+     * specified,
+     * will result in its saturation, and a sharp deterioration of its false positive probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @return a {@code BloomFilter}
+     * @since 19.0
+     */
+    public static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
+                                                               long expectedInsertions) {
+        return create(funnel, expectedInsertions, 0.03); // FYI, for 3%, we always get 5 hash
+        // functions
+    }
+
+    /**
+     * Computes the optimal k (number of hashes per element inserted in Bloom filter), given the
+     * expected insertions and total number of bits in the Bloom filter.
+     *
+     * <p>See http://en.wikipedia.org/wiki/File:Bloom_filter_fp_probability.svg for the formula.
+     *
+     * @param n expected insertions (must be positive)
+     * @param m total number of bits in Bloom filter (must be positive)
+     */
+    static int optimalNumOfHashFunctions(long n, long m) {
+        // (m / n) * log(2), but avoid truncation due to division!
+        return Math.max(1, (int) Math.round((double) m / n * Math.log(2)));
+    }
+
+    /**
+     * Computes m (total bits of Bloom filter) which is expected to achieve, for the specified
+     * expected insertions, the required false positive probability.
+     *
+     * <p>See http://en.wikipedia.org/wiki/Bloom_filter#Probability_of_false_positives for the
+     * formula.
+     *
+     * @param n expected insertions (must be positive)
+     * @param p false positive rate (must be 0 < p < 1)
+     */
+    static long optimalNumOfBits(long n, double p) {
+        if (p == 0) {
+            p = Double.MIN_VALUE;
+        }
+        return (long) (-n * Math.log(p) / (Math.log(2) * Math.log(2)));
+    }
+
+    /**
+     * Reads a byte stream, which was written by {@linkplain #writeTo(OutputStream)}, into a {@code
+     * BloomFilter}.
+     *
+     * <p>The {@code Funnel} to be used is not encoded in the stream, so it must be provided here.
+     * <b>Warning:</b> the funnel provided <b>must</b> behave identically to the one used to
+     * populate
+     * the original Bloom filter!
+     *
+     * @throws IOException if the InputStream throws an {@code IOException}, or if its data does not
+     *                     appear to be a BloomFilter serialized using the
+     *                     {@linkplain #writeTo(OutputStream)} method.
+     */
+    public static <T extends Object> DiskBloomFilter<T> readFrom(File file,
+                                                                 Funnel<? super T> funnel) throws IOException {
+        checkNotNull(file, "InputStream");
+        checkNotNull(funnel, "Funnel");
+        int strategyOrdinal = -1;
+        int numHashFunctions = -1;
+        try {
+            FileInputStream din = new FileInputStream(file);
+            strategyOrdinal = din.read();
+            numHashFunctions = din.read();
+            din.close();
+
+            Strategy strategy = DiskBloomFilterStrategies.values()[strategyOrdinal];
+            return new DiskBloomFilter<>(new DiskBloomFilterStrategies.DiskBitArray(file),
+                    numHashFunctions, funnel, strategy);
+        } catch (Exception e) {
+            String message = "Unable to deserialize BloomFilter from InputStream." + " " +
+                    "strategyOrdinal: " + strategyOrdinal + " numHashFunctions: " + numHashFunctions + " dataLength: ";
+            throw new RuntimeException(message, e);
+        }
     }
 
     @Override
@@ -198,6 +402,18 @@ public class DiskBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
         }
     }
 
+    // Cheat sheet:
+    //
+    // m: total bits
+    // n: expected insertions
+    // b: m/n, bits per insertion
+    // p: expected false positive probability
+    //
+    // 1) Optimal k = b * ln2
+    // 2) p = (1 - e ^ (-kn/m))^k
+    // 3) For optimal k: p = 2 ^ (-k) ~= 0.6185^b
+    // 4) For optimal k: m = -nlnp / ((ln2) ^ 2)
+
     /**
      * Determines whether a given Bloom filter is compatible with this Bloom filter. For two Bloom
      * filters to be compatible, they must:
@@ -249,217 +465,6 @@ public class DiskBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
         }
     }
 
-    /**
-     * Creates a {@link DiskBloomFilter} with the expected number of insertions and expected false
-     * positive probability.
-     *
-     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
-     * specified,
-     * will result in its saturation, and a sharp deterioration of its false positive probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @param fpp                the desired false positive probability (must be positive and
-     *                           less than 1.0)
-     * @return a {@code BloomFilter}
-     */
-    public static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
-                                                               int expectedInsertions, double fpp) {
-        return create(funnel, (long) expectedInsertions, fpp);
-    }
-
-    /**
-     * Creates a {@link DiskBloomFilter} with the expected number of insertions and expected false
-     * positive probability.
-     *
-     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
-     * specified,
-     * will result in its saturation, and a sharp deterioration of its false positive probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @param fpp                the desired false positive probability (must be positive and
-     *                           less than 1.0)
-     * @return a {@code BloomFilter}
-     * @since 19.0
-     */
-    public static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
-                                                               long expectedInsertions,
-                                                               double fpp) {
-        return create(funnel, expectedInsertions, fpp, DiskBloomFilterStrategies.MURMUR128_MITZ_64);
-    }
-
-    static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
-                                                        long expectedInsertions, double fpp,
-                                                        Strategy strategy) {
-        checkNotNull(funnel);
-        checkArgument(expectedInsertions >= 0, "Expected insertions (%s) must be >= 0",
-                expectedInsertions);
-        checkArgument(fpp > 0.0, "False positive probability (%s) must be > 0.0", fpp);
-        checkArgument(fpp < 1.0, "False positive probability (%s) must be < 1.0", fpp);
-        checkNotNull(strategy);
-
-        if (expectedInsertions == 0) {
-            expectedInsertions = 1;
-        }
-        long numBits = optimalNumOfBits(expectedInsertions, fpp);
-        int numHashFunctions = optimalNumOfHashFunctions(expectedInsertions, numBits);
-        try {
-            return new DiskBloomFilter<T>(new DiskBloomFilterStrategies.DiskBitArray(numBits),
-                    numHashFunctions, funnel, strategy);
-        } catch (IllegalArgumentException | IOException e) {
-            throw new IllegalArgumentException("Could not create BloomFilter of " + numBits + " " + "bits", e);
-        }
-    }
-
-    // Cheat sheet:
-    //
-    // m: total bits
-    // n: expected insertions
-    // b: m/n, bits per insertion
-    // p: expected false positive probability
-    //
-    // 1) Optimal k = b * ln2
-    // 2) p = (1 - e ^ (-kn/m))^k
-    // 3) For optimal k: p = 2 ^ (-k) ~= 0.6185^b
-    // 4) For optimal k: m = -nlnp / ((ln2) ^ 2)
-
-    /**
-     * Creates a {@link DiskBloomFilter} with the expected number of insertions and a default
-     * expected
-     * false positive probability of 3%.
-     *
-     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
-     * specified,
-     * will result in its saturation, and a sharp deterioration of its false positive probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @return a {@code BloomFilter}
-     */
-    public static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
-                                                               int expectedInsertions) {
-        return create(funnel, (long) expectedInsertions);
-    }
-
-    /**
-     * Creates a {@link DiskBloomFilter} with the expected number of insertions and a default
-     * expected
-     * false positive probability of 3%.
-     *
-     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
-     * specified,
-     * will result in its saturation, and a sharp deterioration of its false positive probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @return a {@code BloomFilter}
-     * @since 19.0
-     */
-    public static <T extends Object> DiskBloomFilter<T> create(Funnel<? super T> funnel,
-                                                               long expectedInsertions) {
-        return create(funnel, expectedInsertions, 0.03); // FYI, for 3%, we always get 5 hash
-        // functions
-    }
-
-    /**
-     * Computes the optimal k (number of hashes per element inserted in Bloom filter), given the
-     * expected insertions and total number of bits in the Bloom filter.
-     *
-     * <p>See http://en.wikipedia.org/wiki/File:Bloom_filter_fp_probability.svg for the formula.
-     *
-     * @param n expected insertions (must be positive)
-     * @param m total number of bits in Bloom filter (must be positive)
-     */
-    static int optimalNumOfHashFunctions(long n, long m) {
-        // (m / n) * log(2), but avoid truncation due to division!
-        return Math.max(1, (int) Math.round((double) m / n * Math.log(2)));
-    }
-
-    /**
-     * Computes m (total bits of Bloom filter) which is expected to achieve, for the specified
-     * expected insertions, the required false positive probability.
-     *
-     * <p>See http://en.wikipedia.org/wiki/Bloom_filter#Probability_of_false_positives for the
-     * formula.
-     *
-     * @param n expected insertions (must be positive)
-     * @param p false positive rate (must be 0 < p < 1)
-     */
-    static long optimalNumOfBits(long n, double p) {
-        if (p == 0) {
-            p = Double.MIN_VALUE;
-        }
-        return (long) (-n * Math.log(p) / (Math.log(2) * Math.log(2)));
-    }
-
-    /**
-     * Reads a byte stream, which was written by {@linkplain #writeTo(OutputStream)}, into a {@code
-     * BloomFilter}.
-     *
-     * <p>The {@code Funnel} to be used is not encoded in the stream, so it must be provided here.
-     * <b>Warning:</b> the funnel provided <b>must</b> behave identically to the one used to
-     * populate
-     * the original Bloom filter!
-     *
-     * @throws IOException if the InputStream throws an {@code IOException}, or if its data does not
-     *                     appear to be a BloomFilter serialized using the
-     *                     {@linkplain #writeTo(OutputStream)} method.
-     */
-    public static <T extends Object> DiskBloomFilter<T> readFrom(File file,
-                                                                 Funnel<? super T> funnel) throws IOException {
-        checkNotNull(file, "InputStream");
-        checkNotNull(funnel, "Funnel");
-        int strategyOrdinal = -1;
-        int numHashFunctions = -1;
-        try {
-            FileInputStream din = new FileInputStream(file);
-            strategyOrdinal = din.read();
-            numHashFunctions = din.read();
-            din.close();
-
-            Strategy strategy = DiskBloomFilterStrategies.values()[strategyOrdinal];
-            return new DiskBloomFilter<>(new DiskBloomFilterStrategies.DiskBitArray(file),
-                    numHashFunctions, funnel, strategy);
-        } catch (Exception e) {
-            String message = "Unable to deserialize BloomFilter from InputStream." + " " +
-                    "strategyOrdinal: " + strategyOrdinal + " numHashFunctions: " + numHashFunctions + " dataLength: ";
-            throw new RuntimeException(message, e);
-        }
-    }
-
 
     /**
      * A strategy to translate T instances, to {@code numHashFunctions} bit indexes.
@@ -498,10 +503,12 @@ public class DiskBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
     }
 
     private static class SerialForm<T extends Object> implements Serializable {
+        private static final long serialVersionUID = 1;
         final File file;
         final int numHashFunctions;
         final Funnel<? super T> funnel;
         final Strategy strategy;
+
         SerialForm(DiskBloomFilter<T> bf) {
             this.file = bf.diskBitArray.file;
             this.numHashFunctions = bf.numHashFunctions;
@@ -517,6 +524,5 @@ public class DiskBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
                 throw new RuntimeException(e);
             }
         }
-        private static final long serialVersionUID = 1;
     }
 }

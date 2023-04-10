@@ -3,7 +3,13 @@ package com.dazo66.data.turbo;
 import com.dazo66.data.turbo.model.DataTurboDetail;
 import com.dazo66.data.turbo.model.KeeperVersion;
 import com.dazo66.data.turbo.model.LoadEnum;
-import com.dazo66.data.turbo.util.*;
+import com.dazo66.data.turbo.util.DataTurboConstants;
+import com.dazo66.data.turbo.util.DateUtils;
+import com.dazo66.data.turbo.util.DiskBloomFilter;
+import com.dazo66.data.turbo.util.Funnels;
+import com.dazo66.data.turbo.util.HeapBloomFilter;
+import com.dazo66.data.turbo.util.IBloomFilter;
+import com.dazo66.data.turbo.util.Preconditions;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -76,7 +82,15 @@ public class BloomDataTurboBuilder extends AbstractDataTurboBuilder {
         bloomFilter.close();
         // 构建新的detail
         DataTurboDetail ret = new DataTurboDetail();
-        ret.setConfig(getDataTurboDetail().getConfig()).setDataFile(file.getAbsolutePath()).setDataFileEnum(getDataTurboDetail().getDataFileEnum()).setKeeperVersion(KeeperVersion.VERSION).setKeyEnum(getDataTurboDetail().getKeyEnum()).setFields(null).setDataId(getDataTurboDetail().getDataId()).setDataVersion(DateUtils.getDataVersion()).setLoadEnum(getDataTurboDetail().getLoadEnum());
+        ret.setConfig(getDataTurboDetail().getConfig())
+                .setDataFile(file.getAbsolutePath())
+                .setDataFileEnum(getDataTurboDetail().getDataFileEnum())
+                .setKeeperVersion(KeeperVersion.VERSION)
+                .setKeyEnum(getDataTurboDetail().getKeyEnum())
+                .setFields(null)
+                .setDataId(getDataTurboDetail().getDataId())
+                .setDataVersion(DateUtils.getDataVersion())
+                .setLoadEnum(getDataTurboDetail().getLoadEnum());
         return ret;
     }
 }

@@ -10,16 +10,6 @@ import com.dazo66.data.turbo.model.DataTurboDetail;
 public class DataTurboClientFactory extends AbstractFactory<String, DataTurboDetail,
         AbstractDataTurboClient> {
 
-    /**
-     * 生成增量客户端 允许添加增量文件
-     *
-     * @param dataTurboDetail 需要补充的描述文件
-     * @return 带补丁的客户端 会先查补丁进行返回
-     */
-    public PatchDataTurboClient getPatchClient(DataTurboDetail dataTurboDetail) {
-        return new PatchDataTurboClient(get(dataTurboDetail.getDataFileEnum().getId(),
-                dataTurboDetail));
-    }
     private static final DataTurboClientFactory INSTANCE = new DataTurboClientFactory();
 
     static {
@@ -33,5 +23,16 @@ public class DataTurboClientFactory extends AbstractFactory<String, DataTurboDet
 
     public static AbstractDataTurboClient get(DataTurboDetail dataTurboDetail) {
         return getInstance().get(dataTurboDetail.getDataFileEnum().getId(), dataTurboDetail);
+    }
+
+    /**
+     * 生成增量客户端 允许添加增量文件
+     *
+     * @param dataTurboDetail 需要补充的描述文件
+     * @return 带补丁的客户端 会先查补丁进行返回
+     */
+    public PatchDataTurboClient getPatchClient(DataTurboDetail dataTurboDetail) {
+        return new PatchDataTurboClient(get(dataTurboDetail.getDataFileEnum().getId(),
+                dataTurboDetail));
     }
 }

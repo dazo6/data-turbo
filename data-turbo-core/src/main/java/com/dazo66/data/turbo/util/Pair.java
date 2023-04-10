@@ -46,11 +46,17 @@ import java.util.Objects;
  */
 public class Pair<L, R> implements Map.Entry<L, R>, Serializable {
 
+    private static final long serialVersionUID = 2983479832749832213L;
     private final L left;
     private R right;
+
     public Pair(L left, R right) {
         this.left = left;
         this.right = right;
+    }
+
+    public static <L, R> Pair<L, R> of(final L left, final R right) {
+        return new Pair<>(left, right);
     }
 
     public L getLeft() {
@@ -78,6 +84,12 @@ public class Pair<L, R> implements Map.Entry<L, R>, Serializable {
         return ret;
     }
 
+/*    @Override
+    public int compareTo(final Pair<L, R> other) {
+        return new CompareToBuilder().append(getLeft(), other.getLeft())
+                .append(getRight(), other.getRight()).toComparison();
+    }*/
+
     @Override
     public int hashCode() {
         return (getKey() == null ? 0 : getKey().hashCode()) ^ (getValue() == null ? 0 :
@@ -97,12 +109,6 @@ public class Pair<L, R> implements Map.Entry<L, R>, Serializable {
         return false;
     }
 
-/*    @Override
-    public int compareTo(final Pair<L, R> other) {
-        return new CompareToBuilder().append(getLeft(), other.getLeft())
-                .append(getRight(), other.getRight()).toComparison();
-    }*/
-
     @Override
     public String toString() {
         return "(" + getLeft() + ',' + getRight() + ')';
@@ -110,11 +116,6 @@ public class Pair<L, R> implements Map.Entry<L, R>, Serializable {
 
     public String toString(final String format) {
         return String.format(format, getLeft(), getRight());
-    }
-    private static final long serialVersionUID = 2983479832749832213L;
-
-    public static <L, R> Pair<L, R> of(final L left, final R right) {
-        return new Pair<>(left, right);
     }
 
 }

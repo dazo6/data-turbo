@@ -14,7 +14,11 @@
 
 package com.dazo66.data.turbo.util;
 
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.channels.FileChannel;
 
 import static com.dazo66.data.turbo.util.Murmur3_128HashFunction.MURMUR3_128;
@@ -148,9 +152,11 @@ public enum DiskBloomFilterStrategies implements DiskBloomFilter.Strategy {
      * need compare-and-swap.
      */
     static final class DiskBitArray {
+        public static final int FILE_OFFSET = 10 * 8;
         File file;
         FileChannelPool fileChannelPool;
         private LongAddable bitCount;
+
         DiskBitArray(long numBits) throws IOException {
             String usrHome = System.getProperty("user.home");
             checkArgument(numBits > 0, "num of bits must be positive!");
@@ -254,7 +260,6 @@ public enum DiskBloomFilterStrategies implements DiskBloomFilter.Strategy {
             }
             return false;
         }
-        public static final int FILE_OFFSET = 10 * 8;
     }
 
 }

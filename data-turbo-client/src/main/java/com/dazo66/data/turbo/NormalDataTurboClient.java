@@ -4,9 +4,20 @@ import com.dazo66.data.turbo.key.predictor.IKeyComparator;
 import com.dazo66.data.turbo.key.predictor.StringKeyComparator;
 import com.dazo66.data.turbo.model.DataTurboDetail;
 import com.dazo66.data.turbo.model.DataTurboResult;
-import com.dazo66.data.turbo.util.*;
+import com.dazo66.data.turbo.util.ByteHolder;
+import com.dazo66.data.turbo.util.ByteUtils;
+import com.dazo66.data.turbo.util.DataTurboConstants;
+import com.dazo66.data.turbo.util.FileChannelPool;
+import com.dazo66.data.turbo.util.IOUtils;
+import com.dazo66.data.turbo.util.Ints;
+import com.dazo66.data.turbo.util.Longs;
+import com.dazo66.data.turbo.util.Pair;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +30,14 @@ import java.util.TreeMap;
  **/
 public class NormalDataTurboClient extends AbstractDataTurboClient {
 
+    /**
+     * 一些常量
+     */
+    private final static byte[] SPLIT_CHAR3_BYTE =
+            DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_3.getBytes(StandardCharsets.UTF_8);
+    private final static byte[] splitChar2Byte =
+            DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2.getBytes(StandardCharsets.UTF_8);
+    private final static int splitChar2Len = splitChar2Byte.length;
     /**
      * 索引map
      */
@@ -67,6 +86,7 @@ public class NormalDataTurboClient extends AbstractDataTurboClient {
      * 引用数据块长度
      */
     private long referenceBlockLength;
+
     public NormalDataTurboClient(DataTurboDetail dataTurboDetail) {
         super(dataTurboDetail);
     }
@@ -338,12 +358,4 @@ public class NormalDataTurboClient extends AbstractDataTurboClient {
             }
         }
     }
-    /**
-     * 一些常量
-     */
-    private final static byte[] SPLIT_CHAR3_BYTE =
-            DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_3.getBytes(StandardCharsets.UTF_8);
-    private final static byte[] splitChar2Byte =
-            DataTurboConstants.BUILDER_CONSTANTS_NORMAL_SPLIT_CHAR_2.getBytes(StandardCharsets.UTF_8);
-    private final static int splitChar2Len = splitChar2Byte.length;
 }

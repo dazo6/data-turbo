@@ -18,10 +18,21 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.Iterator;
 
-import static com.dazo66.data.turbo.util.DoubleUtils.*;
-import static com.dazo66.data.turbo.util.MathPreconditions.*;
+import static com.dazo66.data.turbo.util.DoubleUtils.IMPLICIT_BIT;
+import static com.dazo66.data.turbo.util.DoubleUtils.SIGNIFICAND_BITS;
+import static com.dazo66.data.turbo.util.DoubleUtils.getSignificand;
+import static com.dazo66.data.turbo.util.DoubleUtils.isFinite;
+import static com.dazo66.data.turbo.util.DoubleUtils.isNormal;
+import static com.dazo66.data.turbo.util.DoubleUtils.scaleNormalize;
+import static com.dazo66.data.turbo.util.MathPreconditions.checkInRangeForRoundingInputs;
+import static com.dazo66.data.turbo.util.MathPreconditions.checkNonNegative;
+import static com.dazo66.data.turbo.util.MathPreconditions.checkRoundingUnnecessary;
 import static com.dazo66.data.turbo.util.Preconditions.checkArgument;
-import static java.lang.Math.*;
+import static java.lang.Math.abs;
+import static java.lang.Math.copySign;
+import static java.lang.Math.getExponent;
+import static java.lang.Math.log;
+import static java.lang.Math.rint;
 
 /**
  * A class for arithmetic on doubles that is not covered by {@link Math}.
@@ -30,8 +41,6 @@ import static java.lang.Math.*;
  * @since 11.0
  */
 public final class DoubleMath {
-    private DoubleMath() {
-    }
     static final int MAX_FACTORIAL = 170;
     static final double[] everySixteenthFactorial = {0x1.0p0, 0x1.30777758p44,
             0x1.956ad0aae33a4p117, 0x1.ee69a78d72cb6p202, 0x1.fe478ee34844ap295,
@@ -46,6 +55,8 @@ public final class DoubleMath {
      */
     private static final double MAX_LONG_AS_DOUBLE_PLUS_ONE = 0x1p63;
     private static final double LN_2 = log(2);
+    private DoubleMath() {
+    }
 
     /*
      * This method returns a value y such that rounding y DOWN (towards zero) gives the same

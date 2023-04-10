@@ -15,7 +15,15 @@
 package com.dazo66.data.turbo.util;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.AbstractList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.RandomAccess;
+import java.util.Spliterator;
+import java.util.Spliterators;
 
 /**
  * Static utility methods pertaining to {@code int} primitives, that are not already found in either
@@ -28,8 +36,6 @@ import java.util.*;
  * @since 1.0
  */
 public final class Ints {
-    private Ints() {
-    }
     /**
      * The number of bytes required to represent a primitive {@code int} value.
      *
@@ -42,6 +48,8 @@ public final class Ints {
      * @since 10.0
      */
     public static final int MAX_POWER_OF_TWO = 1 << (Integer.SIZE - 2);
+    private Ints() {
+    }
 
     /**
      * Returns a hash code for {@code value}; equal to the result of invoking {@code ((Integer)
@@ -62,7 +70,7 @@ public final class Ints {
      * @param value any value in the range of the {@code int} type
      * @return the {@code int} value that equals {@code value}
      * @throws IllegalArgumentException if {@code value} is greater than
-     * {@link Integer#MAX_VALUE} or
+     *                                  {@link Integer#MAX_VALUE} or
      *                                  less than {@link Integer#MIN_VALUE}
      */
     public static int checkedCast(long value) {
@@ -480,7 +488,7 @@ public final class Ints {
      * efficient.
      *
      * @throws IndexOutOfBoundsException if {@code fromIndex < 0}, {@code toIndex > array.length}
-     * , or
+     *                                   , or
      *                                   {@code toIndex > fromIndex}
      * @since 23.1
      */
@@ -619,6 +627,9 @@ public final class Ints {
     }
 
     private static final class IntConverter extends Converter<String, Integer> implements Serializable {
+        static final IntConverter INSTANCE = new IntConverter();
+        private static final long serialVersionUID = 1;
+
         @Override
         protected Integer doForward(String value) {
             return Integer.decode(value);
@@ -637,15 +648,15 @@ public final class Ints {
         private Object readResolve() {
             return INSTANCE;
         }
-        static final IntConverter INSTANCE = new IntConverter();
-        private static final long serialVersionUID = 1;
     }
 
     private static class IntArrayAsList extends AbstractList<Integer> implements RandomAccess,
             Serializable {
+        private static final long serialVersionUID = 0;
         final int[] array;
         final int start;
         final int end;
+
         IntArrayAsList(int[] array) {
             this(array, 0, array.length);
         }
@@ -770,6 +781,5 @@ public final class Ints {
         int[] toIntArray() {
             return Arrays.copyOfRange(array, start, end);
         }
-        private static final long serialVersionUID = 0;
     }
 }

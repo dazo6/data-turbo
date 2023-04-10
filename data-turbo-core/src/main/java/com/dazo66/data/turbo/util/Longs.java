@@ -15,9 +15,20 @@
 package com.dazo66.data.turbo.util;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.AbstractList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.RandomAccess;
+import java.util.Spliterator;
+import java.util.Spliterators;
 
-import static com.dazo66.data.turbo.util.Preconditions.*;
+import static com.dazo66.data.turbo.util.Preconditions.checkArgument;
+import static com.dazo66.data.turbo.util.Preconditions.checkElementIndex;
+import static com.dazo66.data.turbo.util.Preconditions.checkNotNull;
+import static com.dazo66.data.turbo.util.Preconditions.checkPositionIndexes;
 
 /**
  * Static utility methods pertaining to {@code long} primitives, that are not already found in
@@ -30,8 +41,6 @@ import static com.dazo66.data.turbo.util.Preconditions.*;
  * @since 1.0
  */
 public final class Longs {
-    private Longs() {
-    }
     /**
      * The number of bytes required to represent a primitive {@code long} value.
      *
@@ -44,6 +53,8 @@ public final class Longs {
      * @since 10.0
      */
     public static final long MAX_POWER_OF_TWO = 1L << (Long.SIZE - 2);
+    private Longs() {
+    }
 
     /**
      * Returns a hash code for {@code value}; equal to the result of invoking {@code ((Long)
@@ -507,7 +518,7 @@ public final class Longs {
      * efficient.
      *
      * @throws IndexOutOfBoundsException if {@code fromIndex < 0}, {@code toIndex > array.length}
-     * , or
+     *                                   , or
      *                                   {@code toIndex > fromIndex}
      * @since 23.1
      */
@@ -597,8 +608,6 @@ public final class Longs {
      * class.
      */
     static final class AsciiDigits {
-        private AsciiDigits() {
-        }
         private static final byte[] asciiDigits;
 
         static {
@@ -614,12 +623,18 @@ public final class Longs {
             asciiDigits = result;
         }
 
+        private AsciiDigits() {
+        }
+
         static int digit(char c) {
             return (c < 128) ? asciiDigits[c] : -1;
         }
     }
 
     private static final class LongConverter extends Converter<String, Long> implements Serializable {
+        static final LongConverter INSTANCE = new LongConverter();
+        private static final long serialVersionUID = 1;
+
         @Override
         protected Long doForward(String value) {
             return Long.decode(value);
@@ -638,15 +653,15 @@ public final class Longs {
         private Object readResolve() {
             return INSTANCE;
         }
-        static final LongConverter INSTANCE = new LongConverter();
-        private static final long serialVersionUID = 1;
     }
 
     private static class LongArrayAsList extends AbstractList<Long> implements RandomAccess,
             Serializable {
+        private static final long serialVersionUID = 0;
         final long[] array;
         final int start;
         final int end;
+
         LongArrayAsList(long[] array) {
             this(array, 0, array.length);
         }
@@ -770,6 +785,5 @@ public final class Longs {
         long[] toLongArray() {
             return Arrays.copyOfRange(array, start, end);
         }
-        private static final long serialVersionUID = 0;
     }
 }

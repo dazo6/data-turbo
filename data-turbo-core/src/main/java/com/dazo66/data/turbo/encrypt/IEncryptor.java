@@ -5,6 +5,18 @@ package com.dazo66.data.turbo.encrypt;
  */
 public interface IEncryptor {
 
+    IEncryptor DEFAULT = new IEncryptor() {
+        @Override
+        public String decrypt(String src, String key) {
+            return src;
+        }
+
+        @Override
+        public String encrypt(String src, String key) {
+            return src;
+        }
+    };
+
     /**
      * 通过key进行加密
      *
@@ -22,15 +34,4 @@ public interface IEncryptor {
      * @return 解密后的字符串
      */
     String encrypt(String src, String key);
-    IEncryptor DEFAULT = new IEncryptor() {
-        @Override
-        public String decrypt(String src, String key) {
-            return src;
-        }
-
-        @Override
-        public String encrypt(String src, String key) {
-            return src;
-        }
-    };
 }

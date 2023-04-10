@@ -14,7 +14,12 @@
 
 package com.dazo66.data.turbo.util;
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
 import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.function.Predicate;
@@ -82,6 +87,283 @@ public class HeapBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
         this.numHashFunctions = numHashFunctions;
         this.funnel = checkNotNull(funnel);
         this.strategy = checkNotNull(strategy);
+    }
+
+    /**
+     * Returns a {@code Collector} expecting the specified number of insertions, and yielding a
+     * {@link
+     * HeapBloomFilter} with false positive probability 3%.
+     *
+     * <p>Note that if the {@code Collector} receives significantly more elements than specified,
+     * the
+     * resulting {@code BloomFilter} will suffer a sharp deterioration of its false positive
+     * probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @return a {@code Collector} generating a {@code BloomFilter} of the received elements
+     * @since 23.0
+     */
+    public static <T extends Object> Collector<T, ?, HeapBloomFilter<T>> toBloomFilter(Funnel<?
+            super T> funnel, long expectedInsertions) {
+        return toBloomFilter(funnel, expectedInsertions, 0.03);
+    }
+
+    /**
+     * Returns a {@code Collector} expecting the specified number of insertions, and yielding a
+     * {@link
+     * HeapBloomFilter} with the specified expected false positive probability.
+     *
+     * <p>Note that if the {@code Collector} receives significantly more elements than specified,
+     * the
+     * resulting {@code BloomFilter} will suffer a sharp deterioration of its false positive
+     * probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @param fpp                the desired false positive probability (must be positive and
+     *                           less than 1.0)
+     * @return a {@code Collector} generating a {@code BloomFilter} of the received elements
+     * @since 23.0
+     */
+    public static <T extends Object> Collector<T, ?, HeapBloomFilter<T>> toBloomFilter(Funnel<?
+            super T> funnel, long expectedInsertions, double fpp) {
+        checkNotNull(funnel);
+        checkArgument(expectedInsertions >= 0, "Expected insertions (%s) must be >= 0",
+                expectedInsertions);
+        checkArgument(fpp > 0.0, "False positive probability (%s) must be > 0.0", fpp);
+        checkArgument(fpp < 1.0, "False positive probability (%s) must be < 1.0", fpp);
+        return Collector.of(() -> HeapBloomFilter.create(funnel, expectedInsertions, fpp),
+                HeapBloomFilter::put, (bf1, bf2) -> {
+                    bf1.putAll(bf2);
+                    return bf1;
+                }, Collector.Characteristics.UNORDERED, Collector.Characteristics.CONCURRENT);
+    }
+
+    /**
+     * Creates a {@link HeapBloomFilter} with the expected number of insertions and expected false
+     * positive probability.
+     *
+     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
+     * specified,
+     * will result in its saturation, and a sharp deterioration of its false positive probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @param fpp                the desired false positive probability (must be positive and
+     *                           less than 1.0)
+     * @return a {@code BloomFilter}
+     */
+    public static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
+                                                               int expectedInsertions, double fpp) {
+        return create(funnel, (long) expectedInsertions, fpp);
+    }
+
+    /**
+     * Creates a {@link HeapBloomFilter} with the expected number of insertions and expected false
+     * positive probability.
+     *
+     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
+     * specified,
+     * will result in its saturation, and a sharp deterioration of its false positive probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @param fpp                the desired false positive probability (must be positive and
+     *                           less than 1.0)
+     * @return a {@code BloomFilter}
+     * @since 19.0
+     */
+    public static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
+                                                               long expectedInsertions,
+                                                               double fpp) {
+        return create(funnel, expectedInsertions, fpp, BloomFilterStrategies.MURMUR128_MITZ_64);
+    }
+
+    static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
+                                                        long expectedInsertions, double fpp,
+                                                        Strategy strategy) {
+        checkNotNull(funnel);
+        checkArgument(expectedInsertions >= 0, "Expected insertions (%s) must be >= 0",
+                expectedInsertions);
+        checkArgument(fpp > 0.0, "False positive probability (%s) must be > 0.0", fpp);
+        checkArgument(fpp < 1.0, "False positive probability (%s) must be < 1.0", fpp);
+        checkNotNull(strategy);
+
+        if (expectedInsertions == 0) {
+            expectedInsertions = 1;
+        }
+        long numBits = optimalNumOfBits(expectedInsertions, fpp);
+        int numHashFunctions = optimalNumOfHashFunctions(expectedInsertions, numBits);
+        try {
+            return new HeapBloomFilter<T>(new BloomFilterStrategies.LockFreeBitArray(numBits),
+                    numHashFunctions, funnel, strategy);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Could not create BloomFilter of " + numBits + " " + "bits", e);
+        }
+    }
+
+    /**
+     * Creates a {@link HeapBloomFilter} with the expected number of insertions and a default
+     * expected
+     * false positive probability of 3%.
+     *
+     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
+     * specified,
+     * will result in its saturation, and a sharp deterioration of its false positive probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @return a {@code BloomFilter}
+     */
+    public static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
+                                                               int expectedInsertions) {
+        return create(funnel, (long) expectedInsertions);
+    }
+
+    /**
+     * Creates a {@link HeapBloomFilter} with the expected number of insertions and a default
+     * expected
+     * false positive probability of 3%.
+     *
+     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
+     * specified,
+     * will result in its saturation, and a sharp deterioration of its false positive probability.
+     *
+     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
+     * is.
+     *
+     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
+     * ensuring proper serialization and deserialization, which is important since {@link #equals}
+     * also relies on object identity of funnels.
+     *
+     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
+     * @param expectedInsertions the number of expected insertions to the constructed {@code
+     *                           BloomFilter}; must be positive
+     * @return a {@code BloomFilter}
+     * @since 19.0
+     */
+    public static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
+                                                               long expectedInsertions) {
+        return create(funnel, expectedInsertions, 0.03); // FYI, for 3%, we always get 5 hash
+        // functions
+    }
+
+    /**
+     * Computes the optimal k (number of hashes per element inserted in Bloom filter), given the
+     * expected insertions and total number of bits in the Bloom filter.
+     *
+     * <p>See http://en.wikipedia.org/wiki/File:Bloom_filter_fp_probability.svg for the formula.
+     *
+     * @param n expected insertions (must be positive)
+     * @param m total number of bits in Bloom filter (must be positive)
+     */
+    static int optimalNumOfHashFunctions(long n, long m) {
+        // (m / n) * log(2), but avoid truncation due to division!
+        return Math.max(1, (int) Math.round((double) m / n * Math.log(2)));
+    }
+
+    /**
+     * Computes m (total bits of Bloom filter) which is expected to achieve, for the specified
+     * expected insertions, the required false positive probability.
+     *
+     * <p>See http://en.wikipedia.org/wiki/Bloom_filter#Probability_of_false_positives for the
+     * formula.
+     *
+     * @param n expected insertions (must be positive)
+     * @param p false positive rate (must be 0 < p < 1)
+     */
+    static long optimalNumOfBits(long n, double p) {
+        if (p == 0) {
+            p = Double.MIN_VALUE;
+        }
+        return (long) (-n * Math.log(p) / (Math.log(2) * Math.log(2)));
+    }
+
+    /**
+     * Reads a byte stream, which was written by {@linkplain #writeTo(OutputStream)}, into a {@code
+     * BloomFilter}.
+     *
+     * <p>The {@code Funnel} to be used is not encoded in the stream, so it must be provided here.
+     * <b>Warning:</b> the funnel provided <b>must</b> behave identically to the one used to
+     * populate
+     * the original Bloom filter!
+     *
+     * @throws IOException if the InputStream throws an {@code IOException}, or if its data does not
+     *                     appear to be a BloomFilter serialized using the
+     *                     {@linkplain #writeTo(OutputStream)} method.
+     */
+    public static <T extends Object> HeapBloomFilter<T> readFrom(InputStream in,
+                                                                 Funnel<? super T> funnel) throws IOException {
+        checkNotNull(in, "InputStream");
+        checkNotNull(funnel, "Funnel");
+        int strategyOrdinal = -1;
+        int numHashFunctions = -1;
+        Long dataLength = -1L;
+        try {
+            DataInputStream din = new DataInputStream(in);
+            // currently this assumes there is no negative ordinal; will have to be updated if we
+            // add non-stateless strategies (for which we've reserved negative ordinals; see
+            // Strategy.ordinal()).
+            strategyOrdinal = din.readByte();
+            numHashFunctions = ByteUtils.toIntIgnoreSign(din.readByte());
+            dataLength = din.readLong();
+
+            Strategy strategy = BloomFilterStrategies.values()[strategyOrdinal];
+            if (dataLength / 64 > Integer.MAX_VALUE) {
+                throw new RuntimeException("large data of heap filter pls use disk mode");
+            }
+            long[] data = new long[((Long) (dataLength / 64)).intValue()];
+            for (int i = 0; i < data.length; i++) {
+                data[i] = din.readLong();
+            }
+            return new HeapBloomFilter<T>(new BloomFilterStrategies.LockFreeBitArray(data),
+                    numHashFunctions, funnel, strategy);
+        } catch (RuntimeException e) {
+            String message = "Unable to deserialize BloomFilter from InputStream." + " " +
+                    "strategyOrdinal: " + strategyOrdinal + " numHashFunctions: " + numHashFunctions + " dataLength: " + dataLength;
+            throw new IOException(message, e);
+        }
     }
 
     @Override
@@ -223,6 +505,18 @@ public class HeapBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
         return this != that && this.numHashFunctions == that.numHashFunctions && this.bitSize() == that.bitSize() && this.strategy.equals(that.strategy) && this.funnel.equals(that.funnel);
     }
 
+    // Cheat sheet:
+    //
+    // m: total bits
+    // n: expected insertions
+    // b: m/n, bits per insertion
+    // p: expected false positive probability
+    //
+    // 1) Optimal k = b * ln2
+    // 2) p = (1 - e ^ (-kn/m))^k
+    // 3) For optimal k: p = 2 ^ (-k) ~= 0.6185^b
+    // 4) For optimal k: m = -nlnp / ((ln2) ^ 2)
+
     /**
      * Combines this Bloom filter with another Bloom filter by performing a bitwise OR of the
      * underlying data. The mutations happen to <b>this</b> instance. Callers must ensure the Bloom
@@ -236,7 +530,7 @@ public class HeapBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
         checkNotNull(that);
         checkArgument(this != that, "Cannot combine a BloomFilter with itself.");
         checkArgument(this.numHashFunctions == that.numHashFunctions, "BloomFilters must have the" +
-                " same number of hash functions (%s != %s)", this.numHashFunctions,
+                        " same number of hash functions (%s != %s)", this.numHashFunctions,
                 that.numHashFunctions);
         checkArgument(this.bitSize() == that.bitSize(), "BloomFilters must have the same size " +
                 "underlying bit arrays (%s != %s)", this.bitSize(), that.bitSize());
@@ -271,295 +565,6 @@ public class HeapBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
     @Override
     public void close() throws IOException {
 
-    }
-
-    /**
-     * Returns a {@code Collector} expecting the specified number of insertions, and yielding a
-     * {@link
-     * HeapBloomFilter} with false positive probability 3%.
-     *
-     * <p>Note that if the {@code Collector} receives significantly more elements than specified,
-     * the
-     * resulting {@code BloomFilter} will suffer a sharp deterioration of its false positive
-     * probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @return a {@code Collector} generating a {@code BloomFilter} of the received elements
-     * @since 23.0
-     */
-    public static <T extends Object> Collector<T, ?, HeapBloomFilter<T>> toBloomFilter(Funnel<?
-            super T> funnel, long expectedInsertions) {
-        return toBloomFilter(funnel, expectedInsertions, 0.03);
-    }
-
-    /**
-     * Returns a {@code Collector} expecting the specified number of insertions, and yielding a
-     * {@link
-     * HeapBloomFilter} with the specified expected false positive probability.
-     *
-     * <p>Note that if the {@code Collector} receives significantly more elements than specified,
-     * the
-     * resulting {@code BloomFilter} will suffer a sharp deterioration of its false positive
-     * probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @param fpp                the desired false positive probability (must be positive and
-     *                           less than 1.0)
-     * @return a {@code Collector} generating a {@code BloomFilter} of the received elements
-     * @since 23.0
-     */
-    public static <T extends Object> Collector<T, ?, HeapBloomFilter<T>> toBloomFilter(Funnel<?
-            super T> funnel, long expectedInsertions, double fpp) {
-        checkNotNull(funnel);
-        checkArgument(expectedInsertions >= 0, "Expected insertions (%s) must be >= 0",
-                expectedInsertions);
-        checkArgument(fpp > 0.0, "False positive probability (%s) must be > 0.0", fpp);
-        checkArgument(fpp < 1.0, "False positive probability (%s) must be < 1.0", fpp);
-        return Collector.of(() -> HeapBloomFilter.create(funnel, expectedInsertions, fpp),
-                HeapBloomFilter::put, (bf1, bf2) -> {
-            bf1.putAll(bf2);
-            return bf1;
-        }, Collector.Characteristics.UNORDERED, Collector.Characteristics.CONCURRENT);
-    }
-
-    /**
-     * Creates a {@link HeapBloomFilter} with the expected number of insertions and expected false
-     * positive probability.
-     *
-     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
-     * specified,
-     * will result in its saturation, and a sharp deterioration of its false positive probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @param fpp                the desired false positive probability (must be positive and
-     *                           less than 1.0)
-     * @return a {@code BloomFilter}
-     */
-    public static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
-                                                               int expectedInsertions, double fpp) {
-        return create(funnel, (long) expectedInsertions, fpp);
-    }
-
-    /**
-     * Creates a {@link HeapBloomFilter} with the expected number of insertions and expected false
-     * positive probability.
-     *
-     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
-     * specified,
-     * will result in its saturation, and a sharp deterioration of its false positive probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @param fpp                the desired false positive probability (must be positive and
-     *                           less than 1.0)
-     * @return a {@code BloomFilter}
-     * @since 19.0
-     */
-    public static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
-                                                               long expectedInsertions,
-                                                               double fpp) {
-        return create(funnel, expectedInsertions, fpp, BloomFilterStrategies.MURMUR128_MITZ_64);
-    }
-
-    static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
-                                                        long expectedInsertions, double fpp,
-                                                        Strategy strategy) {
-        checkNotNull(funnel);
-        checkArgument(expectedInsertions >= 0, "Expected insertions (%s) must be >= 0",
-                expectedInsertions);
-        checkArgument(fpp > 0.0, "False positive probability (%s) must be > 0.0", fpp);
-        checkArgument(fpp < 1.0, "False positive probability (%s) must be < 1.0", fpp);
-        checkNotNull(strategy);
-
-        if (expectedInsertions == 0) {
-            expectedInsertions = 1;
-        }
-        long numBits = optimalNumOfBits(expectedInsertions, fpp);
-        int numHashFunctions = optimalNumOfHashFunctions(expectedInsertions, numBits);
-        try {
-            return new HeapBloomFilter<T>(new BloomFilterStrategies.LockFreeBitArray(numBits),
-                    numHashFunctions, funnel, strategy);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Could not create BloomFilter of " + numBits + " " + "bits", e);
-        }
-    }
-
-    // Cheat sheet:
-    //
-    // m: total bits
-    // n: expected insertions
-    // b: m/n, bits per insertion
-    // p: expected false positive probability
-    //
-    // 1) Optimal k = b * ln2
-    // 2) p = (1 - e ^ (-kn/m))^k
-    // 3) For optimal k: p = 2 ^ (-k) ~= 0.6185^b
-    // 4) For optimal k: m = -nlnp / ((ln2) ^ 2)
-
-    /**
-     * Creates a {@link HeapBloomFilter} with the expected number of insertions and a default
-     * expected
-     * false positive probability of 3%.
-     *
-     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
-     * specified,
-     * will result in its saturation, and a sharp deterioration of its false positive probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @return a {@code BloomFilter}
-     */
-    public static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
-                                                               int expectedInsertions) {
-        return create(funnel, (long) expectedInsertions);
-    }
-
-    /**
-     * Creates a {@link HeapBloomFilter} with the expected number of insertions and a default
-     * expected
-     * false positive probability of 3%.
-     *
-     * <p>Note that overflowing a {@code BloomFilter} with significantly more elements than
-     * specified,
-     * will result in its saturation, and a sharp deterioration of its false positive probability.
-     *
-     * <p>The constructed {@code BloomFilter} will be serializable if the provided {@code Funnel<T>}
-     * is.
-     *
-     * <p>It is recommended that the funnel be implemented as a Java enum. This has the benefit of
-     * ensuring proper serialization and deserialization, which is important since {@link #equals}
-     * also relies on object identity of funnels.
-     *
-     * @param funnel             the funnel of T's that the constructed {@code BloomFilter} will use
-     * @param expectedInsertions the number of expected insertions to the constructed {@code
-     *                           BloomFilter}; must be positive
-     * @return a {@code BloomFilter}
-     * @since 19.0
-     */
-    public static <T extends Object> HeapBloomFilter<T> create(Funnel<? super T> funnel,
-                                                               long expectedInsertions) {
-        return create(funnel, expectedInsertions, 0.03); // FYI, for 3%, we always get 5 hash
-        // functions
-    }
-
-    /**
-     * Computes the optimal k (number of hashes per element inserted in Bloom filter), given the
-     * expected insertions and total number of bits in the Bloom filter.
-     *
-     * <p>See http://en.wikipedia.org/wiki/File:Bloom_filter_fp_probability.svg for the formula.
-     *
-     * @param n expected insertions (must be positive)
-     * @param m total number of bits in Bloom filter (must be positive)
-     */
-    static int optimalNumOfHashFunctions(long n, long m) {
-        // (m / n) * log(2), but avoid truncation due to division!
-        return Math.max(1, (int) Math.round((double) m / n * Math.log(2)));
-    }
-
-    /**
-     * Computes m (total bits of Bloom filter) which is expected to achieve, for the specified
-     * expected insertions, the required false positive probability.
-     *
-     * <p>See http://en.wikipedia.org/wiki/Bloom_filter#Probability_of_false_positives for the
-     * formula.
-     *
-     * @param n expected insertions (must be positive)
-     * @param p false positive rate (must be 0 < p < 1)
-     */
-    static long optimalNumOfBits(long n, double p) {
-        if (p == 0) {
-            p = Double.MIN_VALUE;
-        }
-        return (long) (-n * Math.log(p) / (Math.log(2) * Math.log(2)));
-    }
-
-    /**
-     * Reads a byte stream, which was written by {@linkplain #writeTo(OutputStream)}, into a {@code
-     * BloomFilter}.
-     *
-     * <p>The {@code Funnel} to be used is not encoded in the stream, so it must be provided here.
-     * <b>Warning:</b> the funnel provided <b>must</b> behave identically to the one used to
-     * populate
-     * the original Bloom filter!
-     *
-     * @throws IOException if the InputStream throws an {@code IOException}, or if its data does not
-     *                     appear to be a BloomFilter serialized using the
-     *                     {@linkplain #writeTo(OutputStream)} method.
-     */
-    public static <T extends Object> HeapBloomFilter<T> readFrom(InputStream in,
-                                                                 Funnel<? super T> funnel) throws IOException {
-        checkNotNull(in, "InputStream");
-        checkNotNull(funnel, "Funnel");
-        int strategyOrdinal = -1;
-        int numHashFunctions = -1;
-        Long dataLength = -1L;
-        try {
-            DataInputStream din = new DataInputStream(in);
-            // currently this assumes there is no negative ordinal; will have to be updated if we
-            // add non-stateless strategies (for which we've reserved negative ordinals; see
-            // Strategy.ordinal()).
-            strategyOrdinal = din.readByte();
-            numHashFunctions = ByteUtils.toIntIgnoreSign(din.readByte());
-            dataLength = din.readLong();
-
-            Strategy strategy = BloomFilterStrategies.values()[strategyOrdinal];
-            if (dataLength / 64 > Integer.MAX_VALUE) {
-                throw new RuntimeException("large data of heap filter pls use disk mode");
-            }
-            long[] data = new long[((Long) (dataLength / 64)).intValue()];
-            for (int i = 0; i < data.length; i++) {
-                data[i] = din.readLong();
-            }
-            return new HeapBloomFilter<T>(new BloomFilterStrategies.LockFreeBitArray(data),
-                    numHashFunctions, funnel, strategy);
-        } catch (RuntimeException e) {
-            String message = "Unable to deserialize BloomFilter from InputStream." + " " +
-                    "strategyOrdinal: " + strategyOrdinal + " numHashFunctions: " + numHashFunctions + " dataLength: " + dataLength;
-            throw new IOException(message, e);
-        }
     }
 
     /**
@@ -599,10 +604,12 @@ public class HeapBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
     }
 
     private static class SerialForm<T extends Object> implements Serializable {
+        private static final long serialVersionUID = 1;
         final long[] data;
         final int numHashFunctions;
         final Funnel<? super T> funnel;
         final Strategy strategy;
+
         SerialForm(HeapBloomFilter<T> bf) {
             this.data = BloomFilterStrategies.LockFreeBitArray.toPlainArray(bf.bits.data);
             this.numHashFunctions = bf.numHashFunctions;
@@ -614,6 +621,5 @@ public class HeapBloomFilter<T extends Object> implements Predicate<T>, IBloomFi
             return new HeapBloomFilter<T>(new BloomFilterStrategies.LockFreeBitArray(data),
                     numHashFunctions, funnel, strategy);
         }
-        private static final long serialVersionUID = 1;
     }
 }

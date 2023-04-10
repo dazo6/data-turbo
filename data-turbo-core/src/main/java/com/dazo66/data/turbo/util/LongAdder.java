@@ -39,6 +39,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * @since 1.8
  */
 final class LongAdder extends Striped64 implements Serializable, LongAddable {
+    private static final long serialVersionUID = 7249069246863182397L;
+
     /**
      * Creates a new adder with initial sum of zero.
      */
@@ -203,5 +205,4 @@ final class LongAdder extends Striped64 implements Serializable, LongAddable {
         cells = null;
         base = s.readLong();
     }
-    private static final long serialVersionUID = 7249069246863182397L;
 }
